@@ -1,0 +1,69 @@
+name: OneApp
+options:
+  createIntermediateGroups: true
+configs:
+  Debug: debug
+  Release: release
+settings:
+  base:
+    PRODUCT_NAME: One
+    PRODUCT_BUNDLE_IDENTIFIER: com.one.app
+    CODE_SIGN_STYLE: Automatic
+    TARGETED_DEVICE_FAMILY: "1"
+    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: 1.0
+    DEVELOPMENT_TEAM: ""
+    IPHONEOS_DEPLOYMENT_TARGET: 17.0
+    SWIFT_VERSION: 5.0
+packages:
+  OneClient:
+    path: ../OneClient
+targets:
+  OneApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    configFiles:
+      Debug: Configs/Debug.xcconfig
+      Release: Configs/Release.xcconfig
+    sources:
+      - path: OneApp
+    dependencies:
+      - package: OneClient
+        product: OneClient
+    settings:
+      configs:
+        Debug:
+          INFOPLIST_FILE: OneApp/Info.Debug.plist
+        Release:
+          INFOPLIST_FILE: OneApp/Info.Release.plist
+  OneAppTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    configFiles:
+      Debug: Configs/Debug.xcconfig
+      Release: Configs/Release.xcconfig
+    sources:
+      - path: OneAppTests
+    dependencies:
+      - target: OneApp
+      - package: OneClient
+        product: OneClient
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  OneApp:
+    build:
+      targets:
+        OneApp: all
+        OneAppTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - name: OneAppTests
+    archive:
+      config: Release
