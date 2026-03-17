@@ -1,0 +1,1807 @@
+openapi: 3.1.0
+info:
+  title: One API
+  version: 0.2.0
+paths:
+  /auth/signup:
+    post:
+      tags:
+      - auth
+      summary: Signup
+      operationId: signup_auth_signup_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailSignupRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSessionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /auth/login:
+    post:
+      tags:
+      - auth
+      summary: Login
+      operationId: login_auth_login_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailLoginRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSessionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /auth/apple:
+    post:
+      tags:
+      - auth
+      summary: Apple Login
+      operationId: apple_login_auth_apple_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppleLoginRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSessionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /users/me:
+    get:
+      tags:
+      - users
+      summary: Get Me
+      operationId: get_me_users_me_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+      security:
+      - HTTPBearer: []
+    patch:
+      tags:
+      - users
+      summary: Patch Me
+      operationId: patch_me_users_me_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /categories:
+    get:
+      tags:
+      - categories
+      summary: List Categories
+      operationId: list_categories_categories_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/CategoryResponse'
+                type: array
+                title: Response List Categories Categories Get
+      security:
+      - HTTPBearer: []
+    post:
+      tags:
+      - categories
+      summary: Create Category
+      operationId: create_category_categories_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryCreateRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /categories/{category_id}:
+    delete:
+      tags:
+      - categories
+      summary: Delete Category
+      operationId: delete_category_categories__category_id__delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: category_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Category Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /habits:
+    get:
+      tags:
+      - habits
+      summary: List Habits
+      operationId: list_habits_habits_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/HabitResponse'
+                type: array
+                title: Response List Habits Habits Get
+      security:
+      - HTTPBearer: []
+    post:
+      tags:
+      - habits
+      summary: Create Habit
+      operationId: create_habit_habits_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HabitCreateRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HabitResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /habits/{habit_id}:
+    patch:
+      tags:
+      - habits
+      summary: Patch Habit
+      operationId: patch_habit_habits__habit_id__patch
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: habit_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Habit Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HabitUpdateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HabitResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - habits
+      summary: Delete Habit
+      operationId: delete_habit_habits__habit_id__delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: habit_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Habit Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /habits/{habit_id}/stats:
+    get:
+      tags:
+      - habits
+      summary: Get Habit Stats
+      operationId: get_habit_stats_habits__habit_id__stats_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: habit_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Habit Id
+      - name: anchor_date
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Anchor Date
+      - name: window_days
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 365
+          minimum: 1
+          default: 30
+          title: Window Days
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HabitStatsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /todos:
+    get:
+      tags:
+      - todos
+      summary: List Todos
+      operationId: list_todos_todos_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/TodoResponse'
+                type: array
+                title: Response List Todos Todos Get
+      security:
+      - HTTPBearer: []
+    post:
+      tags:
+      - todos
+      summary: Create Todo
+      operationId: create_todo_todos_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TodoCreateRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /todos/{todo_id}:
+    patch:
+      tags:
+      - todos
+      summary: Patch Todo
+      operationId: patch_todo_todos__todo_id__patch
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: todo_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Todo Id
+      - name: x-client-updated-at
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Client-Updated-At
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TodoUpdateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - todos
+      summary: Delete Todo
+      operationId: delete_todo_todos__todo_id__delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: todo_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Todo Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /completions:
+    post:
+      tags:
+      - completions
+      summary: Write Completion
+      operationId: write_completion_completions_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletionWriteRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompletionLogResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /reflections:
+    get:
+      tags:
+      - reflections
+      summary: List Reflections
+      operationId: list_reflections_reflections_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: period_type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Period Type
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReflectionNoteResponse'
+                title: Response List Reflections Reflections Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - reflections
+      summary: Create Reflection
+      operationId: create_reflection_reflections_post
+      security:
+      - HTTPBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReflectionWriteRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReflectionNoteResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /reflections/{reflection_id}:
+    delete:
+      tags:
+      - reflections
+      summary: Delete Reflection
+      operationId: delete_reflection_reflections__reflection_id__delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: reflection_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Reflection Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /coach-cards:
+    get:
+      tags:
+      - coach-cards
+      summary: List Coach Cards
+      operationId: list_coach_cards_coach_cards_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/CoachCardResponse'
+                type: array
+                title: Response List Coach Cards Coach Cards Get
+      security:
+      - HTTPBearer: []
+  /preferences:
+    get:
+      tags:
+      - preferences
+      summary: Get Preferences
+      operationId: get_preferences_preferences_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferencesResponse'
+      security:
+      - HTTPBearer: []
+    patch:
+      tags:
+      - preferences
+      summary: Patch Preferences
+      operationId: patch_preferences_preferences_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserPreferencesUpdateRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferencesResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /analytics/daily:
+    get:
+      tags:
+      - analytics
+      summary: Get Daily
+      operationId: get_daily_analytics_daily_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: start_date
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+          title: Start Date
+      - name: end_date
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+          title: End Date
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DailySummaryResponse'
+                title: Response Get Daily Analytics Daily Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /analytics/period:
+    get:
+      tags:
+      - analytics
+      summary: Get Period
+      operationId: get_period_analytics_period_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: anchor_date
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+          title: Anchor Date
+      - name: period_type
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Period Type
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeriodSummaryResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /today:
+    get:
+      tags:
+      - today
+      summary: Get Today
+      operationId: get_today_today_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: date
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Date
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodayResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /today/order:
+    put:
+      tags:
+      - today
+      summary: Put Today Order
+      operationId: put_today_order_today_order_put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TodayOrderWriteRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodayResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /healthz:
+    get:
+      summary: Healthz
+      operationId: healthz_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Healthz Healthz Get
+  /metrics/snapshot:
+    get:
+      summary: Metrics Snapshot
+      operationId: metrics_snapshot_metrics_snapshot_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Metrics Snapshot Metrics Snapshot Get
+components:
+  schemas:
+    AppleLoginRequest:
+      properties:
+        identity_token:
+          type: string
+          title: Identity Token
+      type: object
+      required:
+      - identity_token
+      title: AppleLoginRequest
+    AuthSessionResponse:
+      properties:
+        access_token:
+          type: string
+          title: Access Token
+        refresh_token:
+          type: string
+          title: Refresh Token
+        expires_in:
+          type: integer
+          title: Expires In
+        user:
+          $ref: '#/components/schemas/UserResponse'
+      type: object
+      required:
+      - access_token
+      - refresh_token
+      - expires_in
+      - user
+      title: AuthSessionResponse
+    CategoryCreateRequest:
+      properties:
+        name:
+          type: string
+          title: Name
+        icon:
+          type: string
+          title: Icon
+          default: circle
+        color:
+          type: string
+          title: Color
+          default: '#5B8DEF'
+      type: object
+      required:
+      - name
+      title: CategoryCreateRequest
+    CategoryResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        user_id:
+          type: string
+          title: User Id
+        name:
+          type: string
+          title: Name
+        icon:
+          type: string
+          title: Icon
+        color:
+          type: string
+          title: Color
+        sort_order:
+          type: integer
+          title: Sort Order
+        is_default:
+          type: boolean
+          title: Is Default
+        archived_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Archived At
+      type: object
+      required:
+      - id
+      - user_id
+      - name
+      - icon
+      - color
+      - sort_order
+      - is_default
+      title: CategoryResponse
+    CoachCardResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        title:
+          type: string
+          title: Title
+        body:
+          type: string
+          title: Body
+        verse_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Verse Ref
+        verse_text:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Verse Text
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+        locale:
+          type: string
+          title: Locale
+        active_from:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Active From
+        active_to:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Active To
+        is_active:
+          type: boolean
+          title: Is Active
+      type: object
+      required:
+      - id
+      - title
+      - body
+      - verse_ref
+      - verse_text
+      - tags
+      - locale
+      - active_from
+      - active_to
+      - is_active
+      title: CoachCardResponse
+    CompletionLogResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        user_id:
+          type: string
+          title: User Id
+        item_type:
+          type: string
+          title: Item Type
+        item_id:
+          type: string
+          title: Item Id
+        date_local:
+          type: string
+          format: date
+          title: Date Local
+        state:
+          type: string
+          title: State
+        completed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Completed At
+        source:
+          type: string
+          title: Source
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - id
+      - user_id
+      - item_type
+      - item_id
+      - date_local
+      - state
+      - completed_at
+      - source
+      - created_at
+      - updated_at
+      title: CompletionLogResponse
+    CompletionWriteRequest:
+      properties:
+        item_type:
+          type: string
+          title: Item Type
+        item_id:
+          type: string
+          title: Item Id
+        date_local:
+          type: string
+          format: date
+          title: Date Local
+        state:
+          type: string
+          title: State
+        source:
+          type: string
+          title: Source
+          default: app
+      type: object
+      required:
+      - item_type
+      - item_id
+      - date_local
+      - state
+      title: CompletionWriteRequest
+    DailySummaryResponse:
+      properties:
+        date_local:
+          type: string
+          format: date
+          title: Date Local
+        completed_items:
+          type: integer
+          title: Completed Items
+        expected_items:
+          type: integer
+          title: Expected Items
+        completion_rate:
+          type: number
+          title: Completion Rate
+        habit_completed:
+          type: integer
+          title: Habit Completed
+        habit_expected:
+          type: integer
+          title: Habit Expected
+        todo_completed:
+          type: integer
+          title: Todo Completed
+        todo_expected:
+          type: integer
+          title: Todo Expected
+      type: object
+      required:
+      - date_local
+      - completed_items
+      - expected_items
+      - completion_rate
+      - habit_completed
+      - habit_expected
+      - todo_completed
+      - todo_expected
+      title: DailySummaryResponse
+    EmailLoginRequest:
+      properties:
+        email:
+          type: string
+          format: email
+          title: Email
+        password:
+          type: string
+          title: Password
+      type: object
+      required:
+      - email
+      - password
+      title: EmailLoginRequest
+    EmailSignupRequest:
+      properties:
+        email:
+          type: string
+          format: email
+          title: Email
+        password:
+          type: string
+          minLength: 8
+          title: Password
+        display_name:
+          type: string
+          title: Display Name
+        timezone:
+          type: string
+          title: Timezone
+      type: object
+      required:
+      - email
+      - password
+      - display_name
+      - timezone
+      title: EmailSignupRequest
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    HabitCreateRequest:
+      properties:
+        category_id:
+          type: string
+          title: Category Id
+        title:
+          type: string
+          title: Title
+        notes:
+          type: string
+          title: Notes
+          default: ''
+        recurrence_rule:
+          type: string
+          title: Recurrence Rule
+        start_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Start Date
+        end_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: End Date
+        priority_weight:
+          type: integer
+          title: Priority Weight
+          default: 50
+        preferred_time:
+          anyOf:
+          - type: string
+            format: time
+          - type: 'null'
+          title: Preferred Time
+      type: object
+      required:
+      - category_id
+      - title
+      - recurrence_rule
+      title: HabitCreateRequest
+    HabitResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        user_id:
+          type: string
+          title: User Id
+        category_id:
+          type: string
+          title: Category Id
+        title:
+          type: string
+          title: Title
+        notes:
+          type: string
+          title: Notes
+        recurrence_rule:
+          type: string
+          title: Recurrence Rule
+        start_date:
+          type: string
+          format: date
+          title: Start Date
+        end_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: End Date
+        priority_weight:
+          type: integer
+          title: Priority Weight
+        preferred_time:
+          anyOf:
+          - type: string
+            format: time
+          - type: 'null'
+          title: Preferred Time
+        is_active:
+          type: boolean
+          title: Is Active
+      type: object
+      required:
+      - id
+      - user_id
+      - category_id
+      - title
+      - notes
+      - recurrence_rule
+      - start_date
+      - end_date
+      - priority_weight
+      - preferred_time
+      - is_active
+      title: HabitResponse
+    HabitStatsResponse:
+      properties:
+        habit_id:
+          type: string
+          title: Habit Id
+        anchor_date:
+          type: string
+          format: date
+          title: Anchor Date
+        window_days:
+          type: integer
+          title: Window Days
+        streak_current:
+          type: integer
+          title: Streak Current
+        completed_window:
+          type: integer
+          title: Completed Window
+        expected_window:
+          type: integer
+          title: Expected Window
+        completion_rate_window:
+          type: number
+          title: Completion Rate Window
+        last_completed_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Last Completed Date
+      type: object
+      required:
+      - habit_id
+      - anchor_date
+      - window_days
+      - streak_current
+      - completed_window
+      - expected_window
+      - completion_rate_window
+      - last_completed_date
+      title: HabitStatsResponse
+    HabitUpdateRequest:
+      properties:
+        category_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Category Id
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+        recurrence_rule:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Recurrence Rule
+        end_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: End Date
+        priority_weight:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Priority Weight
+        preferred_time:
+          anyOf:
+          - type: string
+            format: time
+          - type: 'null'
+          title: Preferred Time
+        is_active:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Is Active
+      type: object
+      title: HabitUpdateRequest
+    PeriodSummaryResponse:
+      properties:
+        period_type:
+          type: string
+          title: Period Type
+        period_start:
+          type: string
+          format: date
+          title: Period Start
+        period_end:
+          type: string
+          format: date
+          title: Period End
+        completed_items:
+          type: integer
+          title: Completed Items
+        expected_items:
+          type: integer
+          title: Expected Items
+        completion_rate:
+          type: number
+          title: Completion Rate
+        active_days:
+          type: integer
+          title: Active Days
+        consistency_score:
+          type: number
+          title: Consistency Score
+      type: object
+      required:
+      - period_type
+      - period_start
+      - period_end
+      - completed_items
+      - expected_items
+      - completion_rate
+      - active_days
+      - consistency_score
+      title: PeriodSummaryResponse
+    ReflectionNoteResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        user_id:
+          type: string
+          title: User Id
+        period_type:
+          type: string
+          title: Period Type
+        period_start:
+          type: string
+          format: date
+          title: Period Start
+        period_end:
+          type: string
+          format: date
+          title: Period End
+        content:
+          type: string
+          title: Content
+        sentiment:
+          type: string
+          title: Sentiment
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - id
+      - user_id
+      - period_type
+      - period_start
+      - period_end
+      - content
+      - sentiment
+      - tags
+      - created_at
+      - updated_at
+      title: ReflectionNoteResponse
+    ReflectionWriteRequest:
+      properties:
+        period_type:
+          type: string
+          title: Period Type
+        period_start:
+          type: string
+          format: date
+          title: Period Start
+        period_end:
+          type: string
+          format: date
+          title: Period End
+        content:
+          type: string
+          title: Content
+        sentiment:
+          type: string
+          title: Sentiment
+          default: okay
+        tags:
+          items:
+            type: string
+          type: array
+          title: Tags
+      type: object
+      required:
+      - period_type
+      - period_start
+      - period_end
+      - content
+      title: ReflectionWriteRequest
+    TodayItemResponse:
+      properties:
+        item_type:
+          type: string
+          title: Item Type
+        item_id:
+          type: string
+          title: Item Id
+        title:
+          type: string
+          title: Title
+        category_id:
+          type: string
+          title: Category Id
+        completed:
+          type: boolean
+          title: Completed
+        sort_bucket:
+          type: integer
+          title: Sort Bucket
+        sort_score:
+          type: number
+          title: Sort Score
+        subtitle:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Subtitle
+        is_pinned:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Is Pinned
+        priority:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Priority
+        due_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Due At
+        preferred_time:
+          anyOf:
+          - type: string
+            format: time
+          - type: 'null'
+          title: Preferred Time
+      type: object
+      required:
+      - item_type
+      - item_id
+      - title
+      - category_id
+      - completed
+      - sort_bucket
+      - sort_score
+      title: TodayItemResponse
+    TodayOrderItemRequest:
+      properties:
+        item_type:
+          type: string
+          title: Item Type
+        item_id:
+          type: string
+          title: Item Id
+        order_index:
+          type: integer
+          title: Order Index
+      type: object
+      required:
+      - item_type
+      - item_id
+      - order_index
+      title: TodayOrderItemRequest
+    TodayOrderWriteRequest:
+      properties:
+        date_local:
+          type: string
+          format: date
+          title: Date Local
+        items:
+          items:
+            $ref: '#/components/schemas/TodayOrderItemRequest'
+          type: array
+          title: Items
+      type: object
+      required:
+      - date_local
+      - items
+      title: TodayOrderWriteRequest
+    TodayResponse:
+      properties:
+        date_local:
+          type: string
+          format: date
+          title: Date Local
+        items:
+          items:
+            $ref: '#/components/schemas/TodayItemResponse'
+          type: array
+          title: Items
+        completed_count:
+          type: integer
+          title: Completed Count
+        total_count:
+          type: integer
+          title: Total Count
+        completion_ratio:
+          type: number
+          title: Completion Ratio
+      type: object
+      required:
+      - date_local
+      - items
+      - completed_count
+      - total_count
+      - completion_ratio
+      title: TodayResponse
+    TodoCreateRequest:
+      properties:
+        category_id:
+          type: string
+          title: Category Id
+        title:
+          type: string
+          title: Title
+        notes:
+          type: string
+          title: Notes
+          default: ''
+        due_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Due At
+        priority:
+          type: integer
+          title: Priority
+          default: 50
+        is_pinned:
+          type: boolean
+          title: Is Pinned
+          default: false
+      type: object
+      required:
+      - category_id
+      - title
+      title: TodoCreateRequest
+    TodoResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        user_id:
+          type: string
+          title: User Id
+        category_id:
+          type: string
+          title: Category Id
+        title:
+          type: string
+          title: Title
+        notes:
+          type: string
+          title: Notes
+        due_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Due At
+        priority:
+          type: integer
+          title: Priority
+        is_pinned:
+          type: boolean
+          title: Is Pinned
+        status:
+          type: string
+          title: Status
+        completed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Completed At
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - id
+      - user_id
+      - category_id
+      - title
+      - notes
+      - due_at
+      - priority
+      - is_pinned
+      - status
+      - completed_at
+      - created_at
+      - updated_at
+      title: TodoResponse
+    TodoUpdateRequest:
+      properties:
+        category_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Category Id
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+        due_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Due At
+        priority:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Priority
+        is_pinned:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Is Pinned
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      type: object
+      title: TodoUpdateRequest
+    UserPreferencesResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        user_id:
+          type: string
+          title: User Id
+        theme:
+          type: string
+          title: Theme
+        week_start:
+          type: integer
+          title: Week Start
+        default_tab:
+          type: string
+          title: Default Tab
+        quiet_hours_start:
+          anyOf:
+          - type: string
+            format: time
+          - type: 'null'
+          title: Quiet Hours Start
+        quiet_hours_end:
+          anyOf:
+          - type: string
+            format: time
+          - type: 'null'
+          title: Quiet Hours End
+        notification_flags:
+          additionalProperties:
+            type: boolean
+          type: object
+          title: Notification Flags
+        coach_enabled:
+          type: boolean
+          title: Coach Enabled
+      type: object
+      required:
+      - id
+      - user_id
+      - theme
+      - week_start
+      - default_tab
+      - quiet_hours_start
+      - quiet_hours_end
+      - notification_flags
+      - coach_enabled
+      title: UserPreferencesResponse
+    UserPreferencesUpdateRequest:
+      properties:
+        theme:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Theme
+        week_start:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Week Start
+        default_tab:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Default Tab
+        quiet_hours_start:
+          anyOf:
+          - type: string
+            format: time
+          - type: 'null'
+          title: Quiet Hours Start
+        quiet_hours_end:
+          anyOf:
+          - type: string
+            format: time
+          - type: 'null'
+          title: Quiet Hours End
+        notification_flags:
+          anyOf:
+          - additionalProperties:
+              type: boolean
+            type: object
+          - type: 'null'
+          title: Notification Flags
+        coach_enabled:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Coach Enabled
+      type: object
+      title: UserPreferencesUpdateRequest
+    UserResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        email:
+          type: string
+          format: email
+          title: Email
+        apple_sub:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Apple Sub
+        display_name:
+          type: string
+          title: Display Name
+        timezone:
+          type: string
+          title: Timezone
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - id
+      - email
+      - display_name
+      - timezone
+      - created_at
+      title: UserResponse
+    UserUpdateRequest:
+      properties:
+        display_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Display Name
+        timezone:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Timezone
+      type: object
+      title: UserUpdateRequest
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    HTTPBearer:
+      type: http
+      scheme: bearer
