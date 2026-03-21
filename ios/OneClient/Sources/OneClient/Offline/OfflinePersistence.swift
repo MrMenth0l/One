@@ -677,7 +677,7 @@ public actor LocalDataClient: LocalDataGateway, LocalProfileInspectable {
             }
         case .todo:
             guard let todo = try activeTodoEntities().first(where: { $0.userId == user.id && $0.id == itemId }) else {
-                throw APIError.server(statusCode: 404, message: "Todo not found")
+                throw APIError.server(statusCode: 404, message: "Task not found")
             }
             todo.status = (state == .completed ? TodoStatus.completed : TodoStatus.open).rawValue
             todo.completedAt = state == .completed ? Date() : nil
@@ -904,7 +904,7 @@ public actor LocalDataClient: LocalDataGateway, LocalProfileInspectable {
 
     public func patchTodo(id: String, input: TodoUpdateInput, clientUpdatedAt: Date?) async throws -> Todo {
         guard let entity = try activeTodoEntities().first(where: { $0.id == id }) else {
-            throw APIError.server(statusCode: 404, message: "Todo not found")
+            throw APIError.server(statusCode: 404, message: "Task not found")
         }
         if let clientUpdatedAt, clientUpdatedAt < entity.updatedAt {
             return mapTodo(entity)

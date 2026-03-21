@@ -1096,7 +1096,7 @@ public actor MockAPIClient: APIClient {
     }
 
     public func patchTodo(id: String, fields: [String: String], clientUpdatedAt: Date?) async throws -> Todo {
-        var todo = todos[id] ?? Todo(id: id, userId: "u1", categoryId: "c1", title: "todo")
+        var todo = todos[id] ?? Todo(id: id, userId: "u1", categoryId: "c1", title: "task")
         if let clientUpdatedAt, clientUpdatedAt < todo.updatedAt {
             return todo
         }

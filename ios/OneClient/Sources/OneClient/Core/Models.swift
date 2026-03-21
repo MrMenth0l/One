@@ -38,6 +38,69 @@ public enum Theme: String, Codable, Sendable {
     case system
 }
 
+public enum PriorityTier: String, Codable, Sendable, CaseIterable, Hashable {
+    case low
+    case standard
+    case high
+    case urgent
+
+    public var title: String {
+        switch self {
+        case .low:
+            return "Low"
+        case .standard:
+            return "Standard"
+        case .high:
+            return "High"
+        case .urgent:
+            return "Urgent"
+        }
+    }
+
+    public var helperText: String {
+        switch self {
+        case .low:
+            return "Can wait without losing momentum."
+        case .standard:
+            return "Normal attention for planned work."
+        case .high:
+            return "Should stand out in Today."
+        case .urgent:
+            return "Needs attention before the rest."
+        }
+    }
+
+    public var representativeValue: Int {
+        switch self {
+        case .low:
+            return 20
+        case .standard:
+            return 50
+        case .high:
+            return 75
+        case .urgent:
+            return 95
+        }
+    }
+
+    public static func resolve(priority: Int?, isPinned: Bool = false) -> PriorityTier {
+        if isPinned {
+            return .urgent
+        }
+
+        switch priority ?? 50 {
+        case ..<35:
+            return .low
+        case 35..<65:
+            return .standard
+        case 65..<85:
+            return .high
+        default:
+            return .urgent
+        }
+    }
+}
+
 public struct User: Codable, Sendable, Equatable, Identifiable {
     public let id: String
     public let email: String
@@ -147,6 +210,10 @@ public struct Habit: Codable, Sendable, Equatable, Identifiable {
         self.preferredTime = preferredTime
         self.isActive = isActive
     }
+
+    public var priorityTier: PriorityTier {
+        PriorityTier.resolve(priority: priorityWeight)
+    }
 }
 
 public struct TodayItem: Codable, Sendable, Equatable, Identifiable {
@@ -191,6 +258,10 @@ public struct TodayItem: Codable, Sendable, Equatable, Identifiable {
         self.priority = priority
         self.dueAt = dueAt
         self.preferredTime = preferredTime
+    }
+
+    public var priorityTier: PriorityTier {
+        PriorityTier.resolve(priority: priority, isPinned: isPinned ?? false)
     }
 }
 
@@ -250,6 +321,10 @@ public struct Todo: Codable, Sendable, Equatable, Identifiable {
         self.completedAt = completedAt
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    public var priorityTier: PriorityTier {
+        PriorityTier.resolve(priority: priority, isPinned: isPinned)
     }
 }
 

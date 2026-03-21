@@ -113,7 +113,7 @@ public struct UserNotificationCenterService: LocalNotificationService, @unchecke
                     }
 
                     let content = UNMutableNotificationContent()
-                    content.title = "Todo Reminder"
+                    content.title = "Task Reminder"
                     content.body = todo.title
                     content.sound = .default
                     content.userInfo = ["type": "todo", "todo_id": todo.id]

@@ -328,8 +328,7 @@ struct LocalTodayService {
         for habit in scheduledHabits {
             let log = habitLogs[habit.id]
             let isCompleted = log?.state == .completed
-            let subtitle = habit.preferredTime.map { "Habit · \($0) · priority \(habit.priorityWeight)" }
-                ?? "Habit · priority \(habit.priorityWeight)"
+            let subtitle = habit.preferredTime.map { "Habit · \($0)" } ?? "Habit"
             items.append(
                 TodayItem(
                     itemType: .habit,
@@ -370,7 +369,7 @@ struct LocalTodayService {
             let completedTime = todo.completedAt.map {
                 OfflineDateCoding.localTimeString(from: $0, timezoneID: user.timezone)
             }
-            let subtitle = completedTime.map { "Todo · completed · \($0)" } ?? "Todo · completed"
+            let subtitle = completedTime.map { "Task · completed · \($0)" } ?? "Task · completed"
             items.append(
                 TodayItem(
                     itemType: .todo,
@@ -428,12 +427,11 @@ struct LocalTodayService {
     }
 
     private func todoSubtitle(_ todo: Todo, timezoneID: String) -> String {
-        var subtitle = "Todo"
+        var subtitle = "Task"
         if let dueAt = todo.dueAt {
             let time = OfflineDateCoding.localTimeString(from: dueAt, timezoneID: timezoneID)
             subtitle += " · due \(time)"
         }
-        subtitle += " · priority \(todo.priority)"
         return subtitle
     }
 
