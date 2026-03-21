@@ -375,12 +375,45 @@ public actor DefaultTodayRepository: TodayRepository {
             cached = current
         }
 
+        await MainActor.run {
+            OneSyncFeedbackCenter.shared.showSyncing(
+                title: "Syncing today",
+                message: "Updating your daily progress."
+            )
+        }
         await syncQueue.enqueue(.completionToggle(itemType: itemType, itemId: itemId, dateLocal: dateLocal, state: state))
         await syncQueue.drain(using: apiClient)
 
-        let refreshed = try await apiClient.fetchToday(date: dateLocal)
-        cached = refreshed
-        return refreshed
+        do {
+            let refreshed = try await apiClient.fetchToday(date: dateLocal)
+            cached = refreshed
+            await MainActor.run {
+                OneSyncFeedbackCenter.shared.showSynced(
+                    title: "Today updated",
+                    message: "Your latest completion is synced."
+                )
+            }
+            return refreshed
+        } catch {
+            let pending = await syncQueue.all()
+            if !pending.isEmpty, let cached {
+                await MainActor.run {
+                    OneSyncFeedbackCenter.shared.showLocal(
+                        title: "Saved locally",
+                        message: "Today's change will sync when the connection returns."
+                    )
+                }
+                return cached
+            }
+
+            await MainActor.run {
+                OneSyncFeedbackCenter.shared.showFailed(
+                    title: "Sync issue",
+                    message: "Today's change could not be confirmed."
+                )
+            }
+            throw error
+        }
     }
 
     public func reorder(dateLocal: String, items: [TodayOrderItem]) async throws -> TodayResponse {
@@ -388,12 +421,45 @@ public actor DefaultTodayRepository: TodayRepository {
             cached = applyReorder(items: items, current: current)
         }
 
+        await MainActor.run {
+            OneSyncFeedbackCenter.shared.showSyncing(
+                title: "Saving order",
+                message: "Updating the action queue."
+            )
+        }
         await syncQueue.enqueue(.todayReorder(dateLocal: dateLocal, items: items))
         await syncQueue.drain(using: apiClient)
 
-        let refreshed = try await apiClient.fetchToday(date: dateLocal)
-        cached = refreshed
-        return refreshed
+        do {
+            let refreshed = try await apiClient.fetchToday(date: dateLocal)
+            cached = refreshed
+            await MainActor.run {
+                OneSyncFeedbackCenter.shared.showSynced(
+                    title: "Order saved",
+                    message: "Your action queue is in sync."
+                )
+            }
+            return refreshed
+        } catch {
+            let pending = await syncQueue.all()
+            if !pending.isEmpty, let cached {
+                await MainActor.run {
+                    OneSyncFeedbackCenter.shared.showLocal(
+                        title: "Order saved locally",
+                        message: "The new order will sync when possible."
+                    )
+                }
+                return cached
+            }
+
+            await MainActor.run {
+                OneSyncFeedbackCenter.shared.showFailed(
+                    title: "Order not confirmed",
+                    message: "The action queue could not be synced yet."
+                )
+            }
+            throw error
+        }
     }
 
     private func applyReorder(items: [TodayOrderItem], current: TodayResponse) -> TodayResponse {

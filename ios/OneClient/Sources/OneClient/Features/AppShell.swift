@@ -4,6 +4,9 @@ import Combine
 #if canImport(SwiftData)
 import SwiftData
 #endif
+#if os(iOS)
+import UIKit
+#endif
 
 @MainActor
 public final class OneAppContainer: ObservableObject {
@@ -15,6 +18,8 @@ public final class OneAppContainer: ObservableObject {
     public let coachViewModel: CoachViewModel
     public let reflectionsViewModel: ReflectionsViewModel
     public let notesViewModel: NotesViewModel
+    let syncFeedbackCenter: OneSyncFeedbackCenter
+    let quickActionCenter: OneQuickActionCenter
     public let fatalStartupMessage: String?
     private var cancellables: Set<AnyCancellable> = []
 
@@ -32,6 +37,8 @@ public final class OneAppContainer: ObservableObject {
         let profileViewModel = ProfileViewModel(repository: profileRepository, applier: notificationApplier)
         let reflectionsViewModel = ReflectionsViewModel(repository: reflectionsRepository)
         let notesViewModel = NotesViewModel(repository: reflectionsRepository)
+        self.syncFeedbackCenter = OneSyncFeedbackCenter.shared
+        self.quickActionCenter = OneQuickActionCenter()
         self.authViewModel = AuthViewModel(repository: authRepository)
         self.tasksViewModel = TasksViewModel(repository: tasksRepository, scheduleRefresher: profileViewModel)
         self.todayViewModel = TodayViewModel(repository: todayRepository)
@@ -158,6 +165,8 @@ public final class OneAppContainer: ObservableObject {
         observe(coachViewModel)
         observe(reflectionsViewModel)
         observe(notesViewModel)
+        observe(syncFeedbackCenter)
+        observe(quickActionCenter)
     }
 
     private func observe<Object: ObservableObject>(_ object: Object)
@@ -355,8 +364,10 @@ public struct OneAppShell: View {
             switch route {
             case .addHabit:
                 HabitFormSheet(categories: container.tasksViewModel.categories) { input in
-                    if await container.tasksViewModel.createHabit(input: input) != nil {
+                    if let created = await container.tasksViewModel.createHabit(input: input) {
+                        selectedTab = .today
                         await container.refreshTasksContext(anchorDate: currentAnchorDate)
+                        container.todayViewModel.highlight(itemType: .habit, itemId: created.id)
                         activeSheet = nil
                     }
                 } onCancel: {
@@ -364,8 +375,10 @@ public struct OneAppShell: View {
                 }
             case .addTodo:
                 TodoFormSheet(categories: container.tasksViewModel.categories) { input in
-                    if await container.tasksViewModel.createTodo(input: input) != nil {
+                    if let created = await container.tasksViewModel.createTodo(input: input) {
+                        selectedTab = .today
                         await container.refreshTasksContext(anchorDate: currentAnchorDate)
+                        container.todayViewModel.highlight(itemType: .todo, itemId: created.id)
                         activeSheet = nil
                     }
                 } onCancel: {
@@ -486,60 +499,79 @@ private struct MainTabsView: View {
     }
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            HomeTabView(
-                user: container.profileViewModel.user,
-                tasksViewModel: container.tasksViewModel,
-                todayViewModel: container.todayViewModel,
-                analyticsViewModel: container.analyticsViewModel,
-                coachViewModel: container.coachViewModel,
-                currentDateLocal: currentDateLocal,
-                onFocusToday: { onSelectTab(.today) },
-                onOpenSheet: { activeSheet = $0 }
-            )
-            .tabItem { Label("Home", systemImage: "house") }
-            .tag(OneAppShell.Tab.home)
-
-            TodayTabView(
-                todayViewModel: container.todayViewModel,
-                tasksViewModel: container.tasksViewModel,
-                reflectionsViewModel: container.reflectionsViewModel,
-                currentDateLocal: currentDateLocal,
-                onOpenSheet: { activeSheet = $0 },
-                onRefreshTasksContext: onRefreshTasksContext,
-                onRefreshAnalytics: onRefreshAnalytics,
-                onRefreshReflections: onRefreshReflections
-            )
-            .tabItem { Label("Today", systemImage: "checklist") }
-            .tag(OneAppShell.Tab.today)
-
-            AnalyticsTabView(
-                viewModel: container.analyticsViewModel,
-                currentDateLocal: currentDateLocal,
-                onSelectPeriod: { periodType in
-                    await container.analyticsViewModel.loadPeriod(
-                        anchorDate: currentDateLocal,
-                        periodType: periodType,
-                        weekStart: container.profileViewModel.preferences?.weekStart ?? 0
+        GeometryReader { proxy in
+            ZStack(alignment: .bottom) {
+                TabView(selection: $selectedTab) {
+                    HomeTabView(
+                        user: container.profileViewModel.user,
+                        tasksViewModel: container.tasksViewModel,
+                        todayViewModel: container.todayViewModel,
+                        analyticsViewModel: container.analyticsViewModel,
+                        coachViewModel: container.coachViewModel,
+                        currentDateLocal: currentDateLocal,
+                        onFocusToday: { onSelectTab(.today) },
+                        onOpenSheet: { activeSheet = $0 }
                     )
-                },
-                onOpenNotes: { dateLocal in
-                    activeSheet = .notes(anchorDate: dateLocal, periodType: .daily)
-                }
-            )
-            .tabItem { Label("Analytics", systemImage: "chart.bar.xaxis") }
-            .tag(OneAppShell.Tab.analytics)
+                    .tabItem { Label("Home", systemImage: "house") }
+                    .tag(OneAppShell.Tab.home)
 
-            ProfileTabView(
-                authViewModel: container.authViewModel,
-                profileViewModel: container.profileViewModel,
-                coachViewModel: container.coachViewModel,
-                onOpenSheet: { activeSheet = $0 }
-            )
-            .tabItem { Label("Profile", systemImage: "person") }
-            .tag(OneAppShell.Tab.profile)
+                    TodayTabView(
+                        todayViewModel: container.todayViewModel,
+                        tasksViewModel: container.tasksViewModel,
+                        currentDateLocal: currentDateLocal,
+                        onOpenSheet: { activeSheet = $0 },
+                        onRefreshTasksContext: onRefreshTasksContext,
+                        onRefreshAnalytics: onRefreshAnalytics
+                    )
+                    .tabItem { Label("Today", systemImage: "checklist") }
+                    .tag(OneAppShell.Tab.today)
+
+                    AnalyticsTabView(
+                        viewModel: container.analyticsViewModel,
+                        currentDateLocal: currentDateLocal,
+                        onSelectPeriod: { periodType in
+                            await container.analyticsViewModel.loadPeriod(
+                                anchorDate: currentDateLocal,
+                                periodType: periodType,
+                                weekStart: container.profileViewModel.preferences?.weekStart ?? 0
+                            )
+                        },
+                        onOpenNotes: { dateLocal in
+                            activeSheet = .notes(anchorDate: dateLocal, periodType: .daily)
+                        }
+                    )
+                    .tabItem { Label("Analytics", systemImage: "chart.bar.xaxis") }
+                    .tag(OneAppShell.Tab.analytics)
+
+                    ProfileTabView(
+                        authViewModel: container.authViewModel,
+                        profileViewModel: container.profileViewModel,
+                        coachViewModel: container.coachViewModel,
+                        onOpenSheet: { activeSheet = $0 }
+                    )
+                    .tabItem { Label("Settings", systemImage: "gearshape") }
+                    .tag(OneAppShell.Tab.profile)
+                }
+
+                VStack(alignment: .trailing, spacing: OneDockLayout.overlayStackSpacing) {
+                    if let feedback = container.syncFeedbackCenter.feedback {
+                        OneSyncFeedbackPill(palette: palette, feedback: feedback)
+                            .frame(maxWidth: 320)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .padding(.horizontal, OneDockLayout.horizontalInset)
+                .padding(
+                    .bottom,
+                    OneDockLayout.overlayBottomInset(
+                        safeAreaBottom: proxy.safeAreaInsets.bottom,
+                        isExpanded: false
+                    )
+                )
+            }
         }
         .tint(palette.accent)
+        .animation(OneMotion.animation(.stateChange), value: container.syncFeedbackCenter.feedback?.id)
     }
 }
 
@@ -553,23 +585,16 @@ private struct SplashView: View {
     var body: some View {
         ZStack {
             OneScreenBackground(palette: palette)
-            VStack(spacing: 20) {
+            VStack(spacing: 18) {
                 OneMarkBadge(palette: palette)
-                OneGlassCard(palette: palette, padding: 24) {
-                    VStack(spacing: 10) {
-                        Text("One")
-                            .font(.system(size: 34, weight: .bold, design: .rounded))
-                            .foregroundStyle(palette.text)
-                        Text("Daily execution first")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(palette.subtext)
-                        Text("Habits, priorities, and notes in one calm daily system.")
-                            .font(.system(size: 13, weight: .medium))
-                            .multilineTextAlignment(.center)
-                            .foregroundStyle(palette.subtext)
-                    }
-                }
-                .frame(maxWidth: 320)
+                Text("One")
+                    .font(OneType.largeTitle)
+                    .foregroundStyle(palette.text)
+                Text("Daily execution first")
+                    .font(OneType.body)
+                    .foregroundStyle(palette.subtext)
+                ProgressView()
+                    .tint(palette.accent)
             }
             .padding(24)
         }
@@ -589,18 +614,14 @@ private struct BlockingStartupView: View {
             OneScreenBackground(palette: palette)
             VStack(spacing: 20) {
                 OneMarkBadge(palette: palette)
-                OneGlassCard(palette: palette, padding: 24) {
-                    VStack(spacing: 12) {
-                        Text("Local data unavailable")
-                            .font(.system(size: 28, weight: .bold, design: .rounded))
-                            .foregroundStyle(palette.text)
-                        Text(message)
-                            .font(.system(size: 14, weight: .medium))
-                            .multilineTextAlignment(.center)
-                            .foregroundStyle(palette.subtext)
-                    }
-                }
-                .frame(maxWidth: 340)
+                Text("Local data unavailable")
+                    .font(OneType.largeTitle)
+                    .foregroundStyle(palette.text)
+                Text(message)
+                    .font(OneType.body)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(palette.subtext)
+                    .frame(maxWidth: 340)
             }
             .padding(24)
         }
@@ -613,26 +634,24 @@ private struct OnboardingFlowView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private struct PageContent {
+        let symbol: String
         let title: String
         let body: String
-        let chips: [String]
+        let detail: String
     }
 
     private let pages: [PageContent] = [
         PageContent(
-            title: "Build momentum every day",
-            body: "Keep habits, priorities, and notes together in one clear daily system.",
-            chips: ["Habits", "Quick Notes"]
+            symbol: "checklist",
+            title: "One keeps your day clear.",
+            body: "Track habits, tasks, progress, and notes in one calm daily system.",
+            detail: "Today is for doing. Home and Analytics help you review without getting in the way."
         ),
         PageContent(
-            title: "Stay focused today",
-            body: "See what matters now, clear it, and keep the day moving.",
-            chips: ["Today", "Priorities"]
-        ),
-        PageContent(
-            title: "Review the longer arc",
-            body: "Track progress, mood, and consistency across the week, month, and year.",
-            chips: ["Analytics", "History", "Coach"]
+            symbol: "iphone",
+            title: "Your profile can stay on this iPhone.",
+            body: "Start with a local profile and keep your data on this device, or sign in when you want an account.",
+            detail: "You can change settings, reminders, and appearance later."
         ),
     ]
 
@@ -643,57 +662,61 @@ private struct OnboardingFlowView: View {
     var body: some View {
         ZStack {
             OneScreenBackground(palette: palette)
-            VStack(spacing: 20) {
-                Spacer(minLength: 40)
-                OneMarkBadge(palette: palette)
-                OneGlassCard(palette: palette, padding: 22) {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text(pages[page].title)
-                            .font(.system(size: 30, weight: .bold, design: .rounded))
-                            .foregroundStyle(palette.text)
-                        Text(pages[page].body)
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(palette.subtext)
-                            .fixedSize(horizontal: false, vertical: true)
-                        HStack(spacing: 8) {
-                            ForEach(pages[page].chips, id: \.self) { chip in
-                                OneChip(palette: palette, title: chip, kind: .strong)
-                            }
+            VStack(spacing: OneSpacing.lg) {
+                TabView(selection: $page) {
+                    ForEach(Array(pages.enumerated()), id: \.offset) { index, content in
+                        VStack(alignment: .leading, spacing: OneSpacing.lg) {
+                            Spacer(minLength: 48)
+                            OneMarkBadge(palette: palette)
+                            Image(systemName: content.symbol)
+                                .font(.system(size: 30, weight: .semibold))
+                                .foregroundStyle(palette.highlight)
+                            Text(content.title)
+                                .font(OneType.largeTitle)
+                                .foregroundStyle(palette.text)
+                            Text(content.body)
+                                .font(OneType.body)
+                                .foregroundStyle(palette.text)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Text(content.detail)
+                                .font(OneType.secondary)
+                                .foregroundStyle(palette.subtext)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer()
                         }
+                        .padding(.horizontal, OneSpacing.lg)
+                        .tag(index)
                     }
                 }
-                .frame(maxWidth: 340)
-                HStack(spacing: 8) {
-                    ForEach(Array(pages.indices), id: \.self) { index in
-                        Capsule(style: .continuous)
-                            .fill(index == page ? palette.text : palette.border)
-                            .frame(width: index == page ? 28 : 8, height: 8)
-                    }
-                }
-                Spacer()
-                VStack(spacing: 10) {
+                #if os(iOS)
+                .tabViewStyle(.page(indexDisplayMode: .always))
+                #else
+                .tabViewStyle(.automatic)
+                #endif
+
+                VStack(spacing: OneSpacing.sm) {
                     OneActionButton(
                         palette: palette,
-                        title: page == pages.count - 1 ? "Get Started" : "Continue",
+                        title: page == pages.count - 1 ? "Start using One" : "Continue",
                         style: .primary
                     ) {
                         if page == pages.count - 1 {
                             onComplete()
                         } else {
-                            withAnimation(.easeInOut(duration: 0.22)) {
+                            withAnimation(OneMotion.animation(.stateChange)) {
                                 page += 1
                             }
                         }
                     }
                     if page > 0 {
                         OneActionButton(palette: palette, title: "Back", style: .secondary) {
-                            withAnimation(.easeInOut(duration: 0.22)) {
+                            withAnimation(OneMotion.animation(.dismiss)) {
                                 page -= 1
                             }
                         }
                     }
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, OneSpacing.lg)
                 .padding(.bottom, 28)
             }
         }
@@ -701,8 +724,17 @@ private struct OnboardingFlowView: View {
 }
 
 private struct LocalProfileSetupView: View {
+    private enum AccessMode {
+        case local
+        case signIn
+        case createAccount
+    }
+
     @ObservedObject var viewModel: AuthViewModel
     @State private var displayName = ""
+    @State private var email = ""
+    @State private var password = ""
+    @State private var accessMode: AccessMode?
     @Environment(\.colorScheme) private var colorScheme
 
     private var palette: OneTheme.Palette {
@@ -717,79 +749,186 @@ private struct LocalProfileSetupView: View {
         OneDate.deviceTimeZoneIdentifier
     }
 
-    var body: some View {
-        OneScrollScreen(palette: palette, bottomPadding: 36) {
-            VStack(spacing: 18) {
-                VStack(spacing: 14) {
-                    OneMarkBadge(palette: palette)
-                    Text(localProfileCandidate == nil ? "Set up One" : "Welcome back")
-                        .font(.system(size: 30, weight: .bold, design: .rounded))
-                        .foregroundStyle(palette.text)
-                    Text(localProfileCandidate == nil
-                         ? "Set up your profile once and keep using One on this device."
-                         : "Your profile and data are still on this device. Continue to pick up where you left off.")
-                        .font(.system(size: 14, weight: .medium))
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(palette.subtext)
-                }
-                .padding(.top, 28)
+    private var title: String {
+        switch accessMode {
+        case .local?:
+            return localProfileCandidate == nil ? "Use this iPhone" : "Welcome back"
+        case .signIn?:
+            return "Sign in"
+        case .createAccount?:
+            return "Create account"
+        case nil:
+            return "Welcome to One"
+        }
+    }
 
-                OneGlassCard(palette: palette) {
-                    if let localProfileCandidate {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(localProfileCandidate.displayName)
-                                .font(.system(size: 21, weight: .bold, design: .rounded))
-                                .foregroundStyle(palette.text)
-                            HStack(spacing: 8) {
-                                OneChip(palette: palette, title: deviceTimezoneID, kind: .strong)
-                                OneChip(palette: palette, title: "Data saved locally", kind: .neutral)
-                            }
-                            Text("Continue with this saved profile. One follows this device's time automatically.")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(palette.subtext)
-                                .fixedSize(horizontal: false, vertical: true)
+    private var subtitle: String {
+        switch accessMode {
+        case .local?:
+            return localProfileCandidate == nil
+                ? "Start with a local profile and keep using One on this device."
+                : "Your profile and data are still on this iPhone."
+        case .signIn?:
+            return "Use your account to sync your data across future devices."
+        case .createAccount?:
+            return "Create an account when you want more than local device storage."
+        case nil:
+            return "Choose the simplest way to begin."
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if accessMode == nil {
+                    Section {
+                        Button("Use this iPhone") {
+                            accessMode = .local
                         }
-                    } else {
-                        OneField(title: "Display Name", text: $displayName, placeholder: "How should One address you?")
-                        Text("Using device time automatically: \(deviceTimezoneID)")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(palette.subtext)
-                            .fixedSize(horizontal: false, vertical: true)
+                        Button("Use account") {
+                            accessMode = .signIn
+                        }
+                    } footer: {
+                        Text("Start locally if you want to keep your data on this device, or use an account for future portability.")
+                    }
+                } else {
+                    switch accessMode {
+                    case .local?:
+                        if let localProfileCandidate {
+                            Section {
+                                Text(localProfileCandidate.displayName)
+                                LabeledContent("Time zone", value: deviceTimezoneID)
+                                Button("Continue as \(localProfileCandidate.displayName)") {
+                                    Task {
+                                        await viewModel.resumeLocalProfile()
+                                    }
+                                }
+                                .disabled(viewModel.isLoading)
+                            } header: {
+                                Text("This iPhone")
+                            } footer: {
+                                Text("Continue with the profile already saved on this iPhone.")
+                            }
+                        } else {
+                            Section {
+                                TextField("Your name", text: $displayName)
+                                LabeledContent("Time zone", value: deviceTimezoneID)
+                                Button("Continue on this iPhone") {
+                                    Task {
+                                        await viewModel.createLocalProfile(
+                                            displayName: displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+                                        )
+                                    }
+                                }
+                                .disabled(displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading)
+                            } header: {
+                                Text("This iPhone")
+                            } footer: {
+                                Text("This profile stays on this iPhone.")
+                            }
+                        }
+                    case .signIn?:
+                        Section {
+                            TextField("name@example.com", text: $email)
+                            SecureField("Password", text: $password)
+                            Button("Sign in") {
+                                Task {
+                                    await viewModel.login(
+                                        email: email.trimmingCharacters(in: .whitespacesAndNewlines),
+                                        password: password
+                                    )
+                                }
+                            }
+                            .disabled(email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || password.isEmpty || viewModel.isLoading)
+                        } header: {
+                            Text("Account")
+                        } footer: {
+                            Text("Use your account to keep data available on future devices.")
+                        }
+                    case .createAccount?:
+                        Section {
+                            TextField("Your name", text: $displayName)
+                            TextField("name@example.com", text: $email)
+                            SecureField("Create a password", text: $password)
+                            LabeledContent("Time zone", value: deviceTimezoneID)
+                            Button("Create account") {
+                                Task {
+                                    await viewModel.signup(
+                                        email: email.trimmingCharacters(in: .whitespacesAndNewlines),
+                                        password: password,
+                                        displayName: displayName.trimmingCharacters(in: .whitespacesAndNewlines),
+                                        timezone: deviceTimezoneID
+                                    )
+                                }
+                            }
+                            .disabled(
+                                displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                                email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                                password.isEmpty ||
+                                viewModel.isLoading
+                            )
+                        } header: {
+                            Text("Create account")
+                        }
+                    case nil:
+                        EmptyView()
                     }
                 }
 
                 if let message = viewModel.errorMessage {
-                    InlineStatusCard(message: message, kind: .danger, palette: palette)
+                    Section {
+                        InlineStatusCard(message: message, kind: .danger, palette: palette)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                    }
                 }
-
-                if let localProfileCandidate {
-                    OneActionButton(
-                        palette: palette,
-                        title: "Continue as \(localProfileCandidate.displayName)",
-                        style: .primary
-                    ) {
-                        Task {
-                            await viewModel.resumeLocalProfile()
+            }
+            .scrollContentBackground(.hidden)
+            .background(OneScreenBackground(palette: palette))
+            .navigationTitle(title)
+            .oneNavigationBarDisplayMode(.large)
+            .toolbar {
+                if accessMode != nil {
+                    ToolbarItem(placement: .oneNavigationLeading) {
+                        Button("Back") {
+                            accessMode = nil
+                            password = ""
                         }
                     }
-                    .disabled(viewModel.isLoading)
-                } else {
-                    OneActionButton(palette: palette, title: "Continue", style: .primary) {
-                        Task {
-                            await viewModel.createLocalProfile(
-                                displayName: displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-                            )
+                }
+                if accessMode == .signIn {
+                    ToolbarItem(placement: .oneNavigationTrailing) {
+                        Button("Create account") {
+                            accessMode = .createAccount
                         }
                     }
-                    .disabled(displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isLoading)
+                }
+                if accessMode == .createAccount {
+                    ToolbarItem(placement: .oneNavigationTrailing) {
+                        Button("Sign in") {
+                            accessMode = .signIn
+                        }
+                    }
                 }
             }
         }
         .onAppear {
-            guard let localProfileCandidate else {
-                return
-            }
+            hydrateFromProfileCandidate()
+        }
+        .onChange(of: localProfileCandidate?.id) { _, _ in
+            hydrateFromProfileCandidate()
+        }
+    }
+
+    private func hydrateFromProfileCandidate() {
+        if let localProfileCandidate {
             displayName = localProfileCandidate.displayName
+            if accessMode == nil {
+                accessMode = .local
+            }
+        }
+        if localProfileCandidate == nil && accessMode == .local {
+            email = ""
+            password = ""
         }
     }
 }
@@ -804,7 +943,6 @@ private struct HomeTabView: View {
     let onFocusToday: () -> Void
     let onOpenSheet: (OneAppShell.SheetRoute) -> Void
 
-    @State private var isQuickActionsExpanded = false
     @Environment(\.colorScheme) private var colorScheme
 
     private var palette: OneTheme.Palette {
@@ -815,49 +953,8 @@ private struct HomeTabView: View {
         todayViewModel.items.first(where: { ($0.isPinned ?? false) && !$0.completed })
     }
 
-    private var habitCategoryGroups: [HomeHabitCategoryGroup] {
-        let sortedCategories = tasksViewModel.categories.sorted {
-            if $0.sortOrder != $1.sortOrder {
-                return $0.sortOrder < $1.sortOrder
-            }
-            return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-        }
-        let groupedHabits = Dictionary(grouping: tasksViewModel.habits.filter(\.isActive), by: \.categoryId)
-        let orderedGroups = sortedCategories.compactMap { category -> HomeHabitCategoryGroup? in
-            guard let habits = groupedHabits[category.id], !habits.isEmpty else {
-                return nil
-            }
-            return HomeHabitCategoryGroup(
-                categoryId: category.id,
-                categoryName: category.name,
-                categoryIcon: actionQueueCategoryIcon(name: category.name, storedIcon: category.icon),
-                habits: habits.sorted {
-                    $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
-                }
-            )
-        }
-        let knownCategoryIDs = Set(sortedCategories.map(\.id))
-        let fallbackGroups = groupedHabits
-            .filter { !knownCategoryIDs.contains($0.key) && !$0.value.isEmpty }
-            .map { categoryId, habits in
-                HomeHabitCategoryGroup(
-                    categoryId: categoryId,
-                    categoryName: "Other",
-                    categoryIcon: "◻️",
-                    habits: habits.sorted {
-                        $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
-                    }
-                )
-            }
-            .sorted {
-                $0.categoryName.localizedCaseInsensitiveCompare($1.categoryName) == .orderedAscending
-            }
-
-        return orderedGroups + fallbackGroups
-    }
-
-    private var previewItems: [TodayItem] {
-        Array(todayViewModel.items.prefix(3))
+    private var nextItem: TodayItem? {
+        urgentItem ?? todayViewModel.items.first(where: { !$0.completed })
     }
 
     private var featuredCoachCard: CoachCard? {
@@ -870,187 +967,152 @@ private struct HomeTabView: View {
         return coachViewModel.cards[seed % coachViewModel.cards.count]
     }
 
+    private var momentumLine: String {
+        if todayViewModel.totalCount == 0 {
+            return "Nothing is planned yet."
+        }
+        if todayViewModel.completionRatio == 1 {
+            return "You finished what you planned today."
+        }
+        if todayViewModel.completedCount == 0 {
+            return "A clear start matters more than a busy one."
+        }
+        return "Progress is already moving."
+    }
+
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottomTrailing) {
-                OneScrollScreen(palette: palette) {
-                    OneHeroHeader(
-                        palette: palette,
-                        title: "Home",
-                        subtitle: "Your day at a glance."
-                    ) {
-                        OneAvatarBadge(
-                            palette: palette,
-                            initials: OneDate.initials(from: user?.displayName ?? "One")
-                        )
-                    }
-
-                    OneGlassCard(palette: palette) {
-                        HStack(alignment: .center, spacing: 16) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Today snapshot")
-                                    .font(.system(size: 21, weight: .bold, design: .rounded))
-                                    .foregroundStyle(palette.text)
-                                Text("\(todayViewModel.completedCount) of \(todayViewModel.totalCount) items done")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundStyle(palette.subtext)
+            OneScrollScreen(
+                palette: palette,
+                bottomPadding: OneDockLayout.tabScreenBottomPadding
+            ) {
+                OneGlassCard(palette: palette, padding: OneSpacing.lg) {
+                    HStack(alignment: .top, spacing: OneSpacing.md) {
+                        VStack(alignment: .leading, spacing: OneSpacing.sm) {
+                            Text("Today")
+                                .font(OneType.label)
+                                .foregroundStyle(palette.subtext)
+                            Text(nextItem?.title ?? "A calm briefing for the day")
+                                .font(OneType.title)
+                                .foregroundStyle(palette.text)
+                            Text("\(todayViewModel.completedCount) completed of \(todayViewModel.totalCount) planned")
+                                .font(OneType.secondary)
+                                .foregroundStyle(palette.subtext)
+                            Text(momentumLine)
+                                .font(OneType.body)
+                                .foregroundStyle(palette.text)
+                                .fixedSize(horizontal: false, vertical: true)
+                            if let nextItem {
                                 HStack(spacing: 8) {
-                                    OneChip(palette: palette, title: "\(Int(todayViewModel.completionRatio * 100))% complete", kind: .strong)
-                                    if urgentItem != nil {
-                                        OneChip(palette: palette, title: "Urgent queued", kind: .danger)
-                                    }
+                                    Text(nextItem.priorityTier.title)
+                                        .font(OneType.caption.weight(.semibold))
+                                        .foregroundStyle(nextItem.priorityTier == .urgent ? palette.danger : palette.highlight)
+                                    Text(nextItem.itemType == .habit ? "Habit" : "Task")
+                                        .font(OneType.caption)
+                                        .foregroundStyle(palette.subtext)
                                 }
+                            } else {
+                                Text("Open Today to start adding habits or tasks.")
+                                    .font(OneType.caption)
+                                    .foregroundStyle(palette.subtext)
                             }
-                            Spacer()
+                            OneActionButton(palette: palette, title: "Open Today", style: .primary) {
+                                OneHaptics.shared.trigger(.selectionChanged)
+                                onFocusToday()
+                            }
+                        }
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 12) {
                             OneProgressCluster(
                                 palette: palette,
                                 progress: todayViewModel.completionRatio,
                                 label: "\(Int(todayViewModel.completionRatio * 100))%"
                             )
-                        }
-                    }
-
-                    OneSurfaceCard(palette: palette) {
-                        OneSectionHeading(palette: palette, title: "Coach snippet", meta: "Secondary support")
-                        if let card = featuredCoachCard {
-                            Text(card.title)
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(palette.text)
-                            Text(card.body)
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(palette.subtext)
-                                .fixedSize(horizontal: false, vertical: true)
-                            CoachVerseBlock(palette: palette, card: card)
-                        } else {
-                            Text("Coach guidance appears here.")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(palette.subtext)
-                        }
-                        OneActionButton(palette: palette, title: "Coach", style: .secondary) {
-                            onOpenSheet(.coach)
-                        }
-                    }
-
-                    OneSurfaceCard(palette: palette) {
-                        OneSectionHeading(palette: palette, title: "Weekly lane", meta: analyticsViewModel.weekly?.periodStart ?? "")
-                        if analyticsViewModel.weeklyDailySummaries.isEmpty {
-                            Text("A few completed days will populate this view.")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(palette.subtext)
-                        } else {
-                            OneActivityLane(
-                                palette: palette,
-                                values: analyticsViewModel.weeklyDailySummaries.map(\.completionRate),
-                                labels: analyticsViewModel.weeklyDailySummaries.map { OneDate.shortWeekday(from: $0.dateLocal) },
-                                highlightIndex: analyticsViewModel.weeklyDailySummaries.lastIndex(where: { $0.dateLocal == currentDateLocal })
-                            )
-                            HStack(spacing: 10) {
-                                SummaryMetricTile(palette: palette, title: "Completed", value: "\(analyticsViewModel.weekly?.completedItems ?? 0)")
-                                SummaryMetricTile(palette: palette, title: "Consistency", value: "\(Int((analyticsViewModel.weekly?.consistencyScore ?? 0) * 100))%")
-                                SummaryMetricTile(palette: palette, title: "Active Days", value: "\(analyticsViewModel.weekly?.activeDays ?? 0)")
+                            if todayViewModel.completionRatio == 1 {
+                                Label("Closed", systemImage: "checkmark.circle.fill")
+                                    .font(OneType.caption.weight(.semibold))
+                                    .foregroundStyle(palette.highlight)
+                            } else if let nextItem {
+                                Text(nextItem.priorityTier == .urgent ? "Needs attention" : "In motion")
+                                    .font(OneType.caption.weight(.semibold))
+                                    .foregroundStyle(nextItem.priorityTier == .urgent ? palette.danger : palette.highlight)
                             }
                         }
                     }
-
-                    OneSurfaceCard(palette: palette) {
-                        OneSectionHeading(
-                            palette: palette,
-                            title: "Current habits",
-                            meta: habitCategoryGroups.isEmpty ? "Nothing active yet" : "\(habitCategoryGroups.count) categories"
-                        )
-                        if habitCategoryGroups.isEmpty {
-                            EmptyStateCard(
-                                palette: palette,
-                                title: "No active habits yet",
-                                message: "Create a habit to see it here."
-                            )
-                        } else {
-                            VStack(spacing: 10) {
-                                ForEach(habitCategoryGroups) { group in
-                                    Button {
-                                        onOpenSheet(.habitCategory(categoryId: group.categoryId))
-                                    } label: {
-                                        HomeHabitCategoryGroupRow(
-                                            palette: palette,
-                                            group: group
-                                        )
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                        }
-                    }
-
-                    if let urgentItem {
-                        OneSurfaceCard(palette: palette) {
-                            OneSectionHeading(palette: palette, title: "Pinned urgent item", meta: urgentItem.itemType == .todo ? "Todo" : "Habit")
-                            HStack(alignment: .center, spacing: 12) {
-                                Circle()
-                                    .fill(palette.danger.opacity(0.16))
-                                    .frame(width: 42, height: 42)
-                                    .overlay(
-                                        Image(systemName: "pin.fill")
-                                            .foregroundStyle(palette.danger)
-                                    )
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(urgentItem.title)
-                                        .font(.system(size: 16, weight: .semibold))
-                                        .foregroundStyle(palette.text)
-                                    Text(urgentItem.subtitle ?? "Stays at the top of Today until it is done.")
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundStyle(palette.subtext)
-                                }
-                                Spacer()
-                                Button("Open Today") {
-                                    onFocusToday()
-                                }
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(palette.accent)
-                            }
-                        }
-                    }
-
-                    OneSurfaceCard(palette: palette) {
-                        OneSectionHeading(palette: palette, title: "Today lane", meta: previewItems.isEmpty ? "No actions yet" : "Next up")
-                        if previewItems.isEmpty {
-                            EmptyStateCard(
-                                palette: palette,
-                                title: "Nothing scheduled yet",
-                                message: "Today's habits and todos will appear here."
-                            )
-                        } else {
-                            VStack(spacing: 10) {
-                                ForEach(previewItems) { item in
-                                    CompactTodayPreviewRow(palette: palette, item: item)
-                                }
-                            }
-                        }
-                    }
-
-                    Color.clear
-                        .frame(height: 92)
                 }
 
-                HomeQuickActionsFAB(
-                    palette: palette,
-                    isExpanded: $isQuickActionsExpanded,
-                    onFocusToday: {
-                        isQuickActionsExpanded = false
-                        onFocusToday()
-                    },
-                    onAddHabit: {
-                        isQuickActionsExpanded = false
-                        onOpenSheet(.addHabit)
-                    },
-                    onAddTodo: {
-                        isQuickActionsExpanded = false
-                        onOpenSheet(.addTodo)
+                OneSurfaceCard(palette: palette) {
+                    OneSectionHeading(palette: palette, title: "This week", meta: analyticsViewModel.weekly?.periodStart ?? "")
+                    if analyticsViewModel.weeklyDailySummaries.isEmpty {
+                        Text("Complete a few habits or tasks to build a weekly summary.")
+                            .font(OneType.secondary)
+                            .foregroundStyle(palette.subtext)
+                    } else {
+                        OneActivityLane(
+                            palette: palette,
+                            values: analyticsViewModel.weeklyDailySummaries.map(\.completionRate),
+                            labels: analyticsViewModel.weeklyDailySummaries.map { OneDate.shortWeekday(from: $0.dateLocal) },
+                            highlightIndex: analyticsViewModel.weeklyDailySummaries.lastIndex(where: { $0.dateLocal == currentDateLocal })
+                        )
+                        HStack(spacing: OneSpacing.sm) {
+                            SummaryMetricTile(palette: palette, title: "Completed", value: "\(analyticsViewModel.weekly?.completedItems ?? 0)")
+                            SummaryMetricTile(palette: palette, title: "Consistency", value: "\(Int((analyticsViewModel.weekly?.consistencyScore ?? 0) * 100))%")
+                            SummaryMetricTile(palette: palette, title: "Active Days", value: "\(analyticsViewModel.weekly?.activeDays ?? 0)")
+                        }
                     }
-                )
-                .padding(.trailing, 18)
-                .padding(.bottom, 24)
+                }
+
+                OneSurfaceCard(palette: palette) {
+                    OneSectionHeading(palette: palette, title: "Continue", meta: nil)
+                    Button {
+                        OneHaptics.shared.trigger(.sheetPresented)
+                        onOpenSheet(.notes(anchorDate: currentDateLocal, periodType: .daily))
+                    } label: {
+                        OneSettingsRow(
+                            palette: palette,
+                            icon: "note.text",
+                            title: "Notes",
+                            meta: "Review reflections away from Today.",
+                            tail: nil
+                        )
+                    }
+                    .onePressable(scale: 0.992)
+
+                    Divider().overlay(palette.border)
+
+                    Button {
+                        OneHaptics.shared.trigger(.sheetPresented)
+                        onOpenSheet(.coach)
+                    } label: {
+                        OneSettingsRow(
+                            palette: palette,
+                            icon: "sparkles",
+                            title: "Coach",
+                            meta: featuredCoachCard?.title ?? "Daily guidance that stays secondary.",
+                            tail: nil
+                        )
+                    }
+                    .onePressable(scale: 0.992)
+                }
             }
-            .oneNavigationBarHidden()
+            .navigationTitle("Home")
+            .oneNavigationBarDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .oneNavigationTrailing) {
+                    Menu {
+                        Button("Add task") {
+                            OneHaptics.shared.trigger(.sheetPresented)
+                            onOpenSheet(.addTodo)
+                        }
+                        Button("Add habit") {
+                            OneHaptics.shared.trigger(.sheetPresented)
+                            onOpenSheet(.addHabit)
+                        }
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
         }
     }
 }
@@ -1058,20 +1120,16 @@ private struct HomeTabView: View {
 private struct TodayTabView: View {
     @ObservedObject var todayViewModel: TodayViewModel
     @ObservedObject var tasksViewModel: TasksViewModel
-    @ObservedObject var reflectionsViewModel: ReflectionsViewModel
     let currentDateLocal: String
     let onOpenSheet: (OneAppShell.SheetRoute) -> Void
     let onRefreshTasksContext: () async -> Void
     let onRefreshAnalytics: () async -> Void
-    let onRefreshReflections: () async -> Void
 
-    @State private var inlineReflection = ""
-    @State private var selectedQuickNoteSentiment: ReflectionSentiment?
     @State private var isReordering = false
-    @State private var isActionQueueExpanded = false
-    @State private var isCompletedSectionExpanded = true
-    @State private var pendingDeleteNote: ReflectionNote?
-    @FocusState private var isQuickNoteEditorFocused: Bool
+    @State private var isUpNextExpanded = false
+    @State private var isCompletedSectionExpanded = false
+    @State private var visibleMilestoneCount = 0
+    @State private var showsCompletionPayoff = false
     #if os(iOS)
     @State private var editMode: EditMode = .inactive
     #endif
@@ -1085,49 +1143,61 @@ private struct TodayTabView: View {
         todayViewModel.dateLocal.isEmpty ? currentDateLocal : todayViewModel.dateLocal
     }
 
-    private var dailyQuickNotes: [ReflectionNote] {
-        reflectionsViewModel.notes.filter { $0.periodType == .daily && $0.periodStart == dateLocal }
-    }
-
-    private var dailyQuickNoteSummary: ReflectionSentimentVoteSummary {
-        reflectionSentimentSummary(for: dailyQuickNotes)
-    }
-
     private var activeItems: [TodayItem] {
         todayViewModel.items.filter { !$0.completed }
     }
 
-    private var collapsedActionQueueLimit: Int {
-        3
+    private var needsAttentionItems: [TodayItem] {
+        activeItems.filter(isNeedsAttention)
     }
 
-    private var shouldCollapseActionQueue: Bool {
-        !isReordering && activeItems.count > collapsedActionQueueLimit
+    private var upNextItems: [TodayItem] {
+        activeItems.filter { !isNeedsAttention($0) }
     }
 
-    private var visibleActiveItems: [TodayItem] {
-        guard shouldCollapseActionQueue, !isActionQueueExpanded else {
-            return activeItems
+    private var collapsedUpNextLimit: Int {
+        needsAttentionItems.isEmpty ? 4 : 3
+    }
+
+    private var visibleUpNextItems: [TodayItem] {
+        guard upNextItems.count > collapsedUpNextLimit, !isUpNextExpanded, !isReordering else {
+            return upNextItems
         }
-        return Array(activeItems.prefix(collapsedActionQueueLimit))
+        return Array(upNextItems.prefix(collapsedUpNextLimit))
     }
 
-    private var hiddenActiveItemCount: Int {
-        max(activeItems.count - visibleActiveItems.count, 0)
-    }
-
-    private var actionQueueMeta: String {
-        if isReordering {
-            return "Drag to persist order"
-        }
-        if hiddenActiveItemCount > 0 {
-            return "\(hiddenActiveItemCount) more hidden"
-        }
-        return "Tap to complete"
+    private var hiddenUpNextCount: Int {
+        max(upNextItems.count - visibleUpNextItems.count, 0)
     }
 
     private var completedItems: [TodayItem] {
         todayViewModel.items.filter(\.completed)
+    }
+
+    private var focusTitle: String {
+        if todayViewModel.totalCount == 0 {
+            return "A clear day starts here"
+        }
+        if todayViewModel.completionRatio == 1 {
+            return "Today is complete"
+        }
+        if let first = needsAttentionItems.first ?? activeItems.first {
+            return "Start with \(first.title)"
+        }
+        return "Keep going"
+    }
+
+    private var focusMessage: String {
+        if todayViewModel.totalCount == 0 {
+            return "Add a habit or task to shape today."
+        }
+        if todayViewModel.completionRatio == 1 {
+            return "Everything planned for today is done. Let the rest stay quiet."
+        }
+        if !needsAttentionItems.isEmpty {
+            return "Time-sensitive and high-focus work stays in view first."
+        }
+        return "Keep the next small step moving."
     }
 
     var body: some View {
@@ -1136,85 +1206,72 @@ private struct TodayTabView: View {
                 OneScreenBackground(palette: palette)
                 List {
                     rowSurface {
-                        OneHeroHeader(
-                            palette: palette,
-                            title: "Today",
-                            subtitle: OneDate.longDate(from: dateLocal)
-                        ) {
-                            Button(isReordering ? "Done" : "Reorder") {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    isReordering.toggle()
-                                    if isReordering {
-                                        isActionQueueExpanded = true
-                                    }
-                                    #if os(iOS)
-                                    editMode = isReordering ? .active : .inactive
-                                    #endif
-                                }
-                            }
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(palette.accent)
-                        }
-                    }
-
-                    rowSurface {
                         OneGlassCard(palette: palette) {
-                            HStack(alignment: .center, spacing: 14) {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Daily execution")
-                                        .font(.system(size: 21, weight: .bold, design: .rounded))
-                                        .foregroundStyle(palette.text)
-                                    Text("\(todayViewModel.completedCount) of \(todayViewModel.totalCount) actions complete")
-                                        .font(.system(size: 13, weight: .medium))
+                            HStack(alignment: .top, spacing: OneSpacing.md) {
+                                VStack(alignment: .leading, spacing: OneSpacing.xs) {
+                                    Text(OneDate.longDate(from: dateLocal))
+                                        .font(OneType.label)
                                         .foregroundStyle(palette.subtext)
-                                    HStack(spacing: 8) {
-                                        OneChip(palette: palette, title: "\(todayViewModel.completedCount) done", kind: .success)
-                                        OneChip(palette: palette, title: "\(max(todayViewModel.totalCount - todayViewModel.completedCount, 0)) left", kind: .neutral)
-                                    }
+                                    Text(focusTitle)
+                                        .font(OneType.title)
+                                        .foregroundStyle(palette.text)
+                                    Text("\(activeItems.count) remaining of \(todayViewModel.totalCount)")
+                                        .font(OneType.secondary)
+                                        .foregroundStyle(palette.subtext)
+                                    Text(focusMessage)
+                                        .font(OneType.body)
+                                        .foregroundStyle(palette.text)
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
                                 Spacer()
-                                OneProgressCluster(
-                                    palette: palette,
-                                    progress: todayViewModel.completionRatio,
-                                    label: "\(Int(todayViewModel.completionRatio * 100))%"
-                                )
-                            }
-                        }
-                    }
-
-                    rowSurface {
-                        HStack {
-                            OneSectionHeading(palette: palette, title: "Action queue", meta: actionQueueMeta)
-                            Spacer()
-                            if activeItems.count > collapsedActionQueueLimit && !isReordering {
-                                Button(isActionQueueExpanded ? "Show less" : "Show all") {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        isActionQueueExpanded.toggle()
+                                VStack(alignment: .trailing, spacing: 10) {
+                                    OneProgressCluster(
+                                        palette: palette,
+                                        progress: todayViewModel.completionRatio,
+                                        label: "\(Int(todayViewModel.completionRatio * 100))%"
+                                    )
+                                    if todayViewModel.completionRatio == 1 {
+                                        Label("Done", systemImage: "checkmark.circle.fill")
+                                            .font(OneType.caption.weight(.semibold))
+                                            .foregroundStyle(palette.highlight)
+                                    } else if !needsAttentionItems.isEmpty {
+                                        Label("Needs attention", systemImage: "exclamationmark.circle.fill")
+                                            .font(OneType.caption.weight(.semibold))
+                                            .foregroundStyle(palette.highlight)
                                     }
                                 }
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(palette.accent)
                             }
                         }
                     }
 
-                    if todayViewModel.items.isEmpty {
+                    if showsCompletionPayoff {
                         rowSurface {
-                            EmptyStateCard(
-                                palette: palette,
-                                title: "Nothing for today",
-                                message: "Add a habit or todo. Today is intentionally the execution surface once something exists."
-                            )
+                            OneSurfaceCard(palette: palette) {
+                                Label("Day complete", systemImage: "checkmark.seal.fill")
+                                    .font(OneType.sectionTitle)
+                                    .foregroundStyle(palette.highlight)
+                                Text("You finished what you planned today. That progress is ready for review when you return.")
+                                    .font(OneType.secondary)
+                                    .foregroundStyle(palette.subtext)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
-                    } else {
-                        ForEach(visibleActiveItems) { item in
+                    }
+
+                    if isReordering {
+                        rowSurface {
+                            OneSectionHeading(palette: palette, title: "Reorder", meta: "Drag to save order")
+                        }
+
+                        ForEach(activeItems) { item in
                             rowSurface {
                                 TodayItemCard(
                                     palette: palette,
                                     item: item,
                                     categoryName: categoryName(for: item.categoryId),
                                     categoryIcon: categoryIcon(for: item.categoryId),
-                                    isReordering: isReordering,
+                                    isReordering: true,
+                                    isHighlighted: item.id == todayViewModel.highlightedItemID,
                                     onToggle: {
                                         Task {
                                             await todayViewModel.toggle(item: item, dateLocal: dateLocal)
@@ -1222,24 +1279,7 @@ private struct TodayTabView: View {
                                         }
                                     }
                                 ) {
-                                    if item.itemType == .habit {
-                                        HabitDetailView(
-                                            habitId: item.itemId,
-                                            tasksViewModel: tasksViewModel,
-                                            anchorDate: dateLocal,
-                                            onSave: {
-                                                await onRefreshTasksContext()
-                                            }
-                                        )
-                                    } else {
-                                        TodoDetailView(
-                                            todoId: item.itemId,
-                                            tasksViewModel: tasksViewModel,
-                                            onSave: {
-                                                await onRefreshTasksContext()
-                                            }
-                                        )
-                                    }
+                                    destination(for: item)
                                 }
                             }
                         }
@@ -1250,174 +1290,130 @@ private struct TodayTabView: View {
                                 await todayViewModel.reorder(items: reordered, dateLocal: dateLocal)
                             }
                         }
-
-                        if hiddenActiveItemCount > 0 && !isReordering {
+                    } else if todayViewModel.items.isEmpty {
+                        rowSurface {
+                            EmptyStateCard(
+                                palette: palette,
+                                title: "Nothing is planned for today",
+                                message: "Add a habit or task to build your day."
+                            )
+                        }
+                    } else {
+                        if !needsAttentionItems.isEmpty {
                             rowSurface {
-                                Button {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        isActionQueueExpanded = true
-                                    }
-                                } label: {
-                                    OneSurfaceCard(palette: palette) {
-                                        HStack(spacing: 12) {
-                                            Circle()
-                                                .fill(palette.surfaceStrong)
-                                                .frame(width: 34, height: 34)
-                                                .overlay(
-                                                    Image(systemName: "ellipsis.circle.fill")
-                                                        .font(.system(size: 16, weight: .semibold))
-                                                        .foregroundStyle(palette.accent)
-                                                )
-                                            VStack(alignment: .leading, spacing: 4) {
-                                                Text("Show \(hiddenActiveItemCount) more action\(hiddenActiveItemCount == 1 ? "" : "s")")
-                                                    .font(.system(size: 14, weight: .semibold))
-                                                    .foregroundStyle(palette.text)
-                                                Text("Open the full queue when you want the entire list.")
-                                                    .font(.system(size: 12, weight: .medium))
-                                                    .foregroundStyle(palette.subtext)
+                                OneSectionHeading(palette: palette, title: "Needs attention", meta: "\(needsAttentionItems.count)")
+                            }
+
+                            ForEach(needsAttentionItems) { item in
+                                rowSurface {
+                                    TodayItemCard(
+                                        palette: palette,
+                                        item: item,
+                                        categoryName: categoryName(for: item.categoryId),
+                                        categoryIcon: categoryIcon(for: item.categoryId),
+                                        isReordering: false,
+                                        isHighlighted: item.id == todayViewModel.highlightedItemID,
+                                        onToggle: {
+                                            Task {
+                                                await todayViewModel.toggle(item: item, dateLocal: dateLocal)
+                                                await onRefreshAnalytics()
                                             }
-                                            Spacer()
-                                            Image(systemName: "chevron.down.circle.fill")
-                                                .font(.system(size: 18, weight: .semibold))
-                                                .foregroundStyle(palette.accent)
                                         }
+                                    ) {
+                                        destination(for: item)
                                     }
                                 }
-                                .buttonStyle(.plain)
                             }
                         }
 
-                        if !completedItems.isEmpty {
+                        if !upNextItems.isEmpty {
                             rowSurface {
-                                OneSurfaceCard(palette: palette) {
-                                    Button {
-                                        withAnimation(.easeInOut(duration: 0.2)) {
-                                            isCompletedSectionExpanded.toggle()
-                                        }
-                                    } label: {
-                                        HStack(spacing: 12) {
-                                            OneSectionHeading(
-                                                palette: palette,
-                                                title: "Completed Today",
-                                                meta: "\(completedItems.count)"
-                                            )
-                                            Spacer()
-                                            Image(systemName: isCompletedSectionExpanded ? "chevron.up.circle.fill" : "chevron.down.circle.fill")
-                                                .font(.system(size: 18, weight: .semibold))
-                                                .foregroundStyle(palette.accent)
-                                        }
-                                    }
-                                    .buttonStyle(.plain)
-
-                                    if isCompletedSectionExpanded {
-                                        VStack(spacing: 10) {
-                                            ForEach(completedItems) { item in
-                                                TodayItemCard(
-                                                    palette: palette,
-                                                    item: item,
-                                                    categoryName: categoryName(for: item.categoryId),
-                                                    categoryIcon: categoryIcon(for: item.categoryId),
-                                                    isReordering: false,
-                                                    onToggle: {
-                                                        Task {
-                                                            await todayViewModel.toggle(item: item, dateLocal: dateLocal)
-                                                            await onRefreshAnalytics()
-                                                        }
-                                                    }
-                                                ) {
-                                                    if item.itemType == .habit {
-                                                        HabitDetailView(
-                                                            habitId: item.itemId,
-                                                            tasksViewModel: tasksViewModel,
-                                                            anchorDate: dateLocal,
-                                                            onSave: {
-                                                                await onRefreshTasksContext()
-                                                            }
-                                                        )
-                                                    } else {
-                                                        TodoDetailView(
-                                                            todoId: item.itemId,
-                                                            tasksViewModel: tasksViewModel,
-                                                            onSave: {
-                                                                await onRefreshTasksContext()
-                                                            }
-                                                        )
-                                                    }
-                                                }
+                                HStack {
+                                    OneSectionHeading(
+                                        palette: palette,
+                                        title: "Up next",
+                                        meta: hiddenUpNextCount > 0 ? "\(hiddenUpNextCount) hidden" : "\(upNextItems.count)"
+                                    )
+                                    Spacer()
+                                    if hiddenUpNextCount > 0 {
+                                        Button(isUpNextExpanded ? "Show less" : "Show all") {
+                                            OneHaptics.shared.trigger(.selectionChanged)
+                                            withAnimation(OneMotion.animation(.expand)) {
+                                                isUpNextExpanded.toggle()
                                             }
                                         }
+                                        .font(OneType.label)
+                                        .foregroundStyle(palette.accent)
+                                    }
+                                }
+                            }
+
+                            ForEach(visibleUpNextItems) { item in
+                                rowSurface {
+                                    TodayItemCard(
+                                        palette: palette,
+                                        item: item,
+                                        categoryName: categoryName(for: item.categoryId),
+                                        categoryIcon: categoryIcon(for: item.categoryId),
+                                        isReordering: false,
+                                        isHighlighted: item.id == todayViewModel.highlightedItemID,
+                                        onToggle: {
+                                            Task {
+                                                await todayViewModel.toggle(item: item, dateLocal: dateLocal)
+                                                await onRefreshAnalytics()
+                                            }
+                                        }
+                                    ) {
+                                        destination(for: item)
                                     }
                                 }
                             }
                         }
                     }
 
-                    rowSurface {
-                        OneSurfaceCard(palette: palette) {
-                            HStack(alignment: .top, spacing: 12) {
-                                OneSectionHeading(
-                                    palette: palette,
-                                    title: "Quick Notes",
-                                    meta: dailyQuickNoteSummary.dominant?.title ?? "Today"
-                                )
-                                Spacer()
-                                Button("Open Notes") {
-                                    onOpenSheet(.notes(anchorDate: dateLocal, periodType: .daily))
-                                }
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(palette.accent)
-                            }
-                            OneTextEditorField(
-                                title: "Capture what moved the day",
-                                text: $inlineReflection,
-                                placeholder: "What worked? What blocked you? What changed the day?",
-                                isFocused: $isQuickNoteEditorFocused
-                            )
-                            SentimentPickerRow(
-                                palette: palette,
-                                selectedSentiment: $selectedQuickNoteSentiment
-                            )
-                            OneActionButton(palette: palette, title: "Save Quick Note", style: .primary) {
-                                Task {
-                                    guard let selectedQuickNoteSentiment else {
-                                        return
+                    if !completedItems.isEmpty {
+                        rowSurface {
+                            OneSurfaceCard(palette: palette) {
+                                Button {
+                                    OneHaptics.shared.trigger(.selectionChanged)
+                                    withAnimation(OneMotion.animation(.expand)) {
+                                        isCompletedSectionExpanded.toggle()
                                     }
-                                    if await reflectionsViewModel.upsert(
-                                        input: ReflectionWriteInput(
-                                            periodType: .daily,
-                                            periodStart: dateLocal,
-                                            periodEnd: dateLocal,
-                                            content: inlineReflection,
-                                            sentiment: selectedQuickNoteSentiment
-                                        )
-                                    ) != nil {
-                                        inlineReflection = ""
-                                        self.selectedQuickNoteSentiment = nil
-                                        isQuickNoteEditorFocused = false
-                                        await onRefreshReflections()
-                                        await onRefreshAnalytics()
-                                    }
-                                }
-                            }
-                            .disabled(
-                                inlineReflection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                                selectedQuickNoteSentiment == nil
-                            )
-
-                            if dailyQuickNotes.isEmpty {
-                                Text("Saved notes for today appear here.")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundStyle(palette.subtext)
-                            } else {
-                                VStack(spacing: 10) {
-                                    ForEach(dailyQuickNotes) { note in
-                                        QuickNoteRow(
+                                } label: {
+                                    HStack(spacing: OneSpacing.sm) {
+                                        OneSectionHeading(
                                             palette: palette,
-                                            note: note,
-                                            onDelete: {
-                                                pendingDeleteNote = note
-                                            }
+                                            title: "Completed",
+                                            meta: "\(completedItems.count)"
                                         )
+                                        Spacer()
+                                        Image(systemName: isCompletedSectionExpanded ? "chevron.up" : "chevron.down")
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundStyle(palette.subtext)
+                                    }
+                                }
+                                .onePressable(scale: 0.994)
+
+                                if isCompletedSectionExpanded {
+                                    VStack(spacing: OneSpacing.sm) {
+                                        ForEach(completedItems) { item in
+                                            TodayItemCard(
+                                                palette: palette,
+                                                item: item,
+                                                categoryName: categoryName(for: item.categoryId),
+                                                categoryIcon: categoryIcon(for: item.categoryId),
+                                                isReordering: false,
+                                                isHighlighted: item.id == todayViewModel.highlightedItemID,
+                                                onToggle: {
+                                                    Task {
+                                                        await todayViewModel.toggle(item: item, dateLocal: dateLocal)
+                                                        await onRefreshAnalytics()
+                                                    }
+                                                }
+                                            ) {
+                                                destination(for: item)
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -1429,72 +1425,104 @@ private struct TodayTabView: View {
                             InlineStatusCard(message: message, kind: .danger, palette: palette)
                         }
                     }
-                }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
-                .oneListRowSpacing(10)
-                #if os(iOS)
-                .oneListEditing(editMode: $editMode)
-                #endif
-            }
-            .oneNavigationBarHidden()
-            .confirmationDialog(
-                "Delete this quick note?",
-                isPresented: Binding(
-                    get: { pendingDeleteNote != nil },
-                    set: { isPresented in
-                        if !isPresented {
-                            pendingDeleteNote = nil
-                        }
-                    }
-                ),
-                titleVisibility: .visible
-            ) {
-                Button("Delete Note", role: .destructive) {
-                    guard let note = pendingDeleteNote else {
-                        return
-                    }
-                    Task {
-                        if await reflectionsViewModel.delete(id: note.id) {
-                            pendingDeleteNote = nil
-                            await onRefreshAnalytics()
-                        }
-                    }
-                }
-                Button("Cancel", role: .cancel) {
-                    pendingDeleteNote = nil
-                }
-            } message: {
-                Text("This removes the note and its sentiment from your history.")
-            }
-            .safeAreaInset(edge: .bottom) {
-                if !isQuickNoteEditorFocused {
-                    OneGlassCard(palette: palette, padding: 10) {
-                        HStack(spacing: 10) {
-                            OneActionButton(palette: palette, title: "Add Habit", style: .secondary) {
-                                onOpenSheet(.addHabit)
-                            }
-                            OneActionButton(palette: palette, title: "Add Todo", style: .primary) {
-                                onOpenSheet(.addTodo)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    .padding(.bottom, 12)
-                    .background(Color.clear)
-                }
-            }
-            #if os(iOS)
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") {
-                        isQuickNoteEditorFocused = false
+
+                    rowSurface {
+                        Color.clear
+                            .frame(height: OneDockLayout.listBottomSpacerHeight)
                     }
                 }
             }
-            #endif
+        }
+        .navigationTitle("Today")
+        .oneNavigationBarDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .oneNavigationLeading) {
+                Button("Notes") {
+                    OneHaptics.shared.trigger(.sheetPresented)
+                    onOpenSheet(.notes(anchorDate: dateLocal, periodType: .daily))
+                }
+            }
+            ToolbarItemGroup(placement: .oneNavigationTrailing) {
+                Button(isReordering ? "Done" : "Reorder") {
+                    OneHaptics.shared.trigger(isReordering ? .reorderDrop : .reorderPickup)
+                    withAnimation(OneMotion.animation(.expand)) {
+                        isReordering.toggle()
+                        isUpNextExpanded = isReordering
+                        #if os(iOS)
+                        editMode = isReordering ? .active : .inactive
+                        #endif
+                    }
+                }
+
+                Menu {
+                    Button("Add task") {
+                        OneHaptics.shared.trigger(.sheetPresented)
+                        onOpenSheet(.addTodo)
+                    }
+                    Button("Add habit") {
+                        OneHaptics.shared.trigger(.sheetPresented)
+                        onOpenSheet(.addHabit)
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                }
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            Color.clear.frame(height: 8)
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .redacted(reason: todayViewModel.isLoading ? .placeholder : [])
+        .oneListRowSpacing(10)
+        .onChange(of: todayViewModel.milestoneCount) { _, newValue in
+            guard newValue > visibleMilestoneCount else {
+                return
+            }
+            visibleMilestoneCount = newValue
+            showsCompletionPayoff = true
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(2.6))
+                withAnimation(OneMotion.animation(.dismiss)) {
+                    showsCompletionPayoff = false
+                }
+            }
+        }
+        #if os(iOS)
+        .oneListEditing(editMode: $editMode)
+        #endif
+    }
+
+    private func isNeedsAttention(_ item: TodayItem) -> Bool {
+        item.priorityTier == .urgent || item.priorityTier == .high || isOverdue(item)
+    }
+
+    private func isOverdue(_ item: TodayItem) -> Bool {
+        guard let dueAt = item.dueAt else {
+            return false
+        }
+        return dueAt < Date()
+    }
+
+    @ViewBuilder
+    private func destination(for item: TodayItem) -> some View {
+        if item.itemType == .habit {
+            HabitDetailView(
+                habitId: item.itemId,
+                tasksViewModel: tasksViewModel,
+                anchorDate: dateLocal,
+                onSave: {
+                    await onRefreshTasksContext()
+                }
+            )
+        } else {
+            TodoDetailView(
+                todoId: item.itemId,
+                tasksViewModel: tasksViewModel,
+                onSave: {
+                    await onRefreshTasksContext()
+                }
+            )
         }
     }
 
@@ -1529,32 +1557,30 @@ private struct AnalyticsTabView: View {
 
     private let periodOptions: [PeriodType] = [.weekly, .monthly, .yearly]
 
+    private var primarySummary: PeriodSummary? {
+        viewModel.summary ?? viewModel.weekly
+    }
+
+    private var headlineInsight: String {
+        guard let summary = primarySummary else {
+            return "Your progress will appear here once you complete habits or tasks."
+        }
+        if summary.completionRate >= 0.8 {
+            return "You are keeping strong momentum this \(periodTitle(summary.periodType).lowercased())."
+        }
+        if summary.activeDays == 0 {
+            return "No activity is recorded for this \(periodTitle(summary.periodType).lowercased()) yet."
+        }
+        return "You completed \(summary.completedItems) of \(summary.expectedItems) planned items."
+    }
+
     var body: some View {
         NavigationStack {
-            OneScrollScreen(palette: palette) {
-                OneHeroHeader(
-                    palette: palette,
-                    title: "Analytics",
-                    subtitle: "Progress, mood, and daily history."
-                ) {
-                    HStack(spacing: 10) {
-                        OneChip(palette: palette, title: periodTitle(viewModel.selectedPeriod), kind: .strong)
-                        Menu {
-                            ForEach(AnalyticsActivityFilter.allCases, id: \.self) { filter in
-                                Button(filter.title) {
-                                    viewModel.selectActivityFilter(filter)
-                                }
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis.circle")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundStyle(palette.accent)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-
-                OneGlassCard(palette: palette) {
+            OneScrollScreen(
+                palette: palette,
+                bottomPadding: OneDockLayout.tabScreenBottomPadding
+            ) {
+                OneSurfaceCard(palette: palette) {
                     OneSegmentedControl(
                         palette: palette,
                         options: periodOptions,
@@ -1567,37 +1593,40 @@ private struct AnalyticsTabView: View {
                     }
                 }
 
-                if let summary = viewModel.summary ?? viewModel.weekly {
+                if let summary = primarySummary {
                     OneGlassCard(palette: palette) {
-                        OneSectionHeading(
-                            palette: palette,
-                            title: periodTitle(summary.periodType) + " summary",
-                            meta: viewModel.selectedActivityFilter.title
-                        )
+                        Text(periodTitle(summary.periodType) + " insight")
+                            .font(OneType.label)
+                            .foregroundStyle(palette.subtext)
+                        Text(headlineInsight)
+                            .font(OneType.title)
+                            .foregroundStyle(palette.text)
+                            .fixedSize(horizontal: false, vertical: true)
                         HStack(spacing: 10) {
                             SummaryMetricTile(palette: palette, title: "Completed", value: "\(summary.completedItems)")
-                            SummaryMetricTile(palette: palette, title: "Expected", value: "\(summary.expectedItems)")
-                            SummaryMetricTile(palette: palette, title: "Rate", value: "\(Int(summary.completionRate * 100))%")
+                            SummaryMetricTile(palette: palette, title: "Planned", value: "\(summary.expectedItems)")
+                            SummaryMetricTile(palette: palette, title: "Completion rate", value: "\(Int(summary.completionRate * 100))%")
                         }
                         HStack(spacing: 10) {
                             SummaryMetricTile(palette: palette, title: "Consistency", value: "\(Int(summary.consistencyScore * 100))%")
                             SummaryMetricTile(palette: palette, title: "Active Days", value: "\(summary.activeDays)")
-                            SummaryMetricTile(palette: palette, title: "Window", value: summary.periodEnd)
+                            SummaryMetricTile(palette: palette, title: "Range", value: summary.periodEnd)
                         }
                     }
+                    .redacted(reason: viewModel.isTransitioning ? .placeholder : [])
                 }
 
                 OneSurfaceCard(palette: palette) {
                     OneSectionHeading(
                         palette: palette,
-                        title: "Completion lane",
+                        title: "Progress",
                         meta: viewModel.selectedPeriod == .monthly
                             ? (viewModel.selectedMonthWeekDetailLabel ?? periodTitle(viewModel.selectedPeriod))
                             : periodTitle(viewModel.selectedPeriod)
                     )
                     if viewModel.chartSeries.values.isEmpty {
-                        Text("Complete a few tasks to populate this view.")
-                            .font(.system(size: 13, weight: .medium))
+                        Text("Complete a few habits or tasks to build this view.")
+                            .font(OneType.secondary)
                             .foregroundStyle(palette.subtext)
                     } else {
                         OneActivityLane(
@@ -1611,16 +1640,17 @@ private struct AnalyticsTabView: View {
                         )
                     }
                 }
+                .redacted(reason: viewModel.isTransitioning ? .placeholder : [])
 
                 OneSurfaceCard(palette: palette) {
                     OneSectionHeading(
                         palette: palette,
-                        title: "Contribution history",
+                        title: "History",
                         meta: contributionMeta
                     )
                     if viewModel.dailySummaries.isEmpty {
                         Text("Your history will appear here.")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(OneType.secondary)
                             .foregroundStyle(palette.subtext)
                     } else {
                         if viewModel.selectedPeriod == .yearly {
@@ -1638,10 +1668,11 @@ private struct AnalyticsTabView: View {
                         }
                     }
                 }
+                .redacted(reason: viewModel.isTransitioning ? .placeholder : [])
 
                 if let sentimentOverview = viewModel.sentimentOverview {
                     OneSurfaceCard(palette: palette) {
-                        OneSectionHeading(palette: palette, title: "Sentiment", meta: sentimentOverview.dominant?.title ?? "No dominant mood")
+                        OneSectionHeading(palette: palette, title: "Notes mood", meta: sentimentOverview.dominant?.title ?? "No dominant pattern")
                         AnalyticsSentimentOverviewView(
                             palette: palette,
                             periodType: viewModel.selectedPeriod,
@@ -1650,13 +1681,28 @@ private struct AnalyticsTabView: View {
                             onOpenDate: onOpenNotes
                         )
                     }
+                    .redacted(reason: viewModel.isTransitioning ? .placeholder : [])
                 }
 
                 if let message = viewModel.errorMessage {
                     InlineStatusCard(message: message, kind: .danger, palette: palette)
                 }
             }
-            .oneNavigationBarHidden()
+            .navigationTitle("Analytics")
+            .oneNavigationBarDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .oneNavigationTrailing) {
+                    Menu {
+                        ForEach(AnalyticsActivityFilter.allCases, id: \.self) { filter in
+                            Button(filter.title) {
+                                viewModel.selectActivityFilter(filter)
+                            }
+                        }
+                    } label: {
+                        Label(viewModel.selectedActivityFilter.title, systemImage: "line.3.horizontal.decrease.circle")
+                    }
+                }
+            }
         }
     }
 
@@ -1723,19 +1769,10 @@ private struct NotesSheetView: View {
 
     var body: some View {
         NavigationStack {
-            OneScrollScreen(palette: palette) {
-                OneHeroHeader(
-                    palette: palette,
-                    title: "Notes",
-                    subtitle: viewModel.currentRangeTitle
-                ) {
-                    Button("Done") {
-                        onDismiss()
-                    }
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(palette.accent)
-                }
-
+            OneScrollScreen(
+                palette: palette,
+                bottomPadding: 36
+            ) {
                 OneGlassCard(palette: palette) {
                     OneSegmentedControl(
                         palette: palette,
@@ -1746,54 +1783,22 @@ private struct NotesSheetView: View {
                         viewModel.selectPeriod(period)
                     }
                 }
-
-                OneSurfaceCard(palette: palette) {
-                    HStack(spacing: 14) {
-                        Button {
-                            viewModel.moveSelection(by: -1)
-                        } label: {
-                            Image(systemName: "chevron.left.circle.fill")
-                                .font(.system(size: 22, weight: .semibold))
-                                .foregroundStyle(palette.accent)
-                        }
-                        .buttonStyle(.plain)
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(viewModel.currentRangeTitle)
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(palette.text)
-                            Text(viewModel.selectedDayTitle)
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(palette.subtext)
-                        }
-
-                        Spacer()
-
-                        Button {
-                            viewModel.moveSelection(by: 1)
-                        } label: {
-                            Image(systemName: "chevron.right.circle.fill")
-                                .font(.system(size: 22, weight: .semibold))
-                                .foregroundStyle(palette.accent)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+                .oneEntranceReveal(index: 1)
 
                 if let summary = viewModel.sentimentSummary {
                     OneSurfaceCard(palette: palette) {
                         OneSectionHeading(
                             palette: palette,
                             title: "Period summary",
-                            meta: summary.dominant.map { "\($0.emoji) \($0.title)" } ?? "No clear mood"
+                            meta: summary.dominant?.title ?? "No clear pattern"
                         )
                         HStack(spacing: 10) {
                             SummaryMetricTile(palette: palette, title: "Notes", value: "\(summary.noteCount)")
                             SummaryMetricTile(palette: palette, title: "Active Days", value: "\(summary.activeDays)")
                             SummaryMetricTile(
                                 palette: palette,
-                                title: "Mood",
-                                value: summary.dominant?.emoji ?? "·"
+                                title: "Dominant",
+                                value: summary.dominant?.title ?? "-"
                             )
                         }
                         if !summary.distribution.isEmpty {
@@ -1801,14 +1806,85 @@ private struct NotesSheetView: View {
                                 ForEach(summary.distribution) { item in
                                     OneChip(
                                         palette: palette,
-                                        title: "\(item.sentiment.emoji) \(item.count)",
+                                        title: "\(item.sentiment.title) \(item.count)",
                                         kind: item.sentiment.chipKind
                                     )
                                 }
                             }
                         }
                     }
+                    .oneEntranceReveal(index: 2)
                 }
+
+                OneSurfaceCard(palette: palette) {
+                    OneSectionHeading(
+                        palette: palette,
+                        title: "Entries",
+                        meta: viewModel.selectedDayTitle
+                    )
+
+                    if viewModel.selectedDayNotes.isEmpty {
+                        EmptyStateCard(
+                            palette: palette,
+                            title: "No notes for this date",
+                            message: "Choose another day or save a note to start building history."
+                        )
+                    } else {
+                        VStack(spacing: 10) {
+                            ForEach(viewModel.selectedDayNotes) { note in
+                                QuickNoteRow(
+                                    palette: palette,
+                                    note: note,
+                                    onDelete: {
+                                        pendingDeleteNote = note
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                .oneEntranceReveal(index: 3)
+
+                OneSurfaceCard(palette: palette) {
+                    OneSectionHeading(
+                        palette: palette,
+                        title: "Browse dates",
+                        meta: notesPeriodTitle(viewModel.selectedPeriod)
+                    )
+                    HStack(spacing: 14) {
+                        Button {
+                            OneHaptics.shared.trigger(.selectionChanged)
+                            viewModel.moveSelection(by: -1)
+                        } label: {
+                            Image(systemName: "chevron.left.circle.fill")
+                                .font(.system(size: 22, weight: .semibold))
+                                .foregroundStyle(palette.accent)
+                        }
+                        .onePressable(scale: 0.94)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(viewModel.currentRangeTitle)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(palette.text)
+                            Text(viewModel.selectedDayTitle)
+                                .font(OneType.secondary)
+                                .foregroundStyle(palette.subtext)
+                        }
+
+                        Spacer()
+
+                        Button {
+                            OneHaptics.shared.trigger(.selectionChanged)
+                            viewModel.moveSelection(by: 1)
+                        } label: {
+                            Image(systemName: "chevron.right.circle.fill")
+                                .font(.system(size: 22, weight: .semibold))
+                                .foregroundStyle(palette.accent)
+                        }
+                        .onePressable(scale: 0.94)
+                    }
+                }
+                .oneEntranceReveal(index: 4)
 
                 OneSurfaceCard(palette: palette) {
                     switch viewModel.selectedPeriod {
@@ -1857,40 +1933,23 @@ private struct NotesSheetView: View {
                         }
                     }
                 }
-
-                OneSurfaceCard(palette: palette) {
-                    OneSectionHeading(
-                        palette: palette,
-                        title: "Selected day",
-                        meta: viewModel.selectedDayTitle
-                    )
-
-                    if viewModel.selectedDayNotes.isEmpty {
-                        EmptyStateCard(
-                            palette: palette,
-                            title: "No notes for this day",
-                            message: "Choose another day or capture a note from Today."
-                        )
-                    } else {
-                        VStack(spacing: 10) {
-                            ForEach(viewModel.selectedDayNotes) { note in
-                                QuickNoteRow(
-                                    palette: palette,
-                                    note: note,
-                                    onDelete: {
-                                        pendingDeleteNote = note
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
+                .oneEntranceReveal(index: 5)
 
                 if let message = viewModel.errorMessage {
                     InlineStatusCard(message: message, kind: .danger, palette: palette)
+                        .oneEntranceReveal(index: 6)
                 }
             }
-            .oneNavigationBarHidden()
+            .navigationTitle("Notes")
+            .oneNavigationBarDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .oneNavigationTrailing) {
+                    Button("Done") {
+                        OneHaptics.shared.trigger(.sheetDismissed)
+                        onDismiss()
+                    }
+                }
+            }
             .task(id: "\(initialAnchorDate)-\(initialPeriod.rawValue)-\(weekStart)") {
                 await viewModel.load(
                     anchorDate: initialAnchorDate,
@@ -1915,6 +1974,7 @@ private struct NotesSheetView: View {
                     guard let note = pendingDeleteNote else {
                         return
                     }
+                    OneHaptics.shared.trigger(.destructiveConfirmed)
                     Task {
                         if await viewModel.delete(id: note.id) {
                             pendingDeleteNote = nil
@@ -1955,20 +2015,22 @@ private struct NotesFocusedDayCard: View {
     var body: some View {
         if let option {
             Button {
+                OneHaptics.shared.trigger(.selectionChanged)
                 onSelect(option.dateLocal)
             } label: {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(option.weekdayLabel.uppercased())
-                            .font(.system(size: 11, weight: .bold))
+                            .font(OneType.caption)
                             .foregroundStyle(palette.subtext)
                         Text("\(option.dayNumber)")
-                            .font(.system(size: 28, weight: .bold, design: .rounded))
+                            .font(.system(size: 28, weight: .bold))
                             .foregroundStyle(palette.text)
                     }
                     Spacer()
-                    Text(option.sentiment?.emoji ?? "·")
-                        .font(.system(size: 28))
+                    Image(systemName: option.sentiment?.symbolName ?? (option.hasNotes ? "circle.fill" : "circle"))
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(option.sentiment?.tint(in: palette) ?? palette.subtext)
                 }
                 .padding(14)
                 .background(
@@ -1980,7 +2042,7 @@ private struct NotesFocusedDayCard: View {
                         .stroke(option.dateLocal == selectedDateLocal ? palette.accent : palette.border, lineWidth: 1)
                 )
             }
-            .buttonStyle(.plain)
+            .onePressable(scale: 0.985)
         }
     }
 }
@@ -1995,17 +2057,23 @@ private struct NotesDayStrip: View {
         HStack(spacing: 8) {
             ForEach(options) { option in
                 Button {
+                    OneHaptics.shared.trigger(.selectionChanged)
                     onSelect(option.dateLocal)
                 } label: {
                     VStack(spacing: 6) {
                         Text(option.weekdayLabel.uppercased())
-                            .font(.system(size: 9, weight: .bold))
+                            .font(OneType.caption)
                             .foregroundStyle(option.dateLocal == selectedDateLocal ? palette.text : palette.subtext)
                         Text("\(option.dayNumber)")
-                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(palette.text)
-                        Text(option.sentiment?.emoji ?? "·")
-                            .font(.system(size: 16))
+                        Circle()
+                            .fill(option.sentiment?.tint(in: palette) ?? (option.hasNotes ? palette.subtext : Color.clear))
+                            .frame(width: 8, height: 8)
+                            .overlay(
+                                Circle()
+                                    .stroke(option.hasNotes ? Color.clear : palette.border, lineWidth: 1)
+                            )
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
@@ -2018,7 +2086,7 @@ private struct NotesDayStrip: View {
                             .stroke(option.dateLocal == selectedDateLocal ? palette.accent : palette.border, lineWidth: 1)
                     )
                 }
-                .buttonStyle(.plain)
+                .onePressable(scale: 0.97)
             }
         }
     }
@@ -2036,16 +2104,18 @@ private struct NotesMonthPickerView: View {
         LazyVGrid(columns: columns, spacing: 8) {
             ForEach(options) { option in
                 Button {
+                    OneHaptics.shared.trigger(.selectionChanged)
                     onSelect(option.month)
                 } label: {
                     VStack(spacing: 4) {
                         Text(option.label)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(OneType.label)
                             .foregroundStyle(palette.text)
-                        Text(option.dominant?.emoji ?? "·")
-                            .font(.system(size: 16))
+                        Text(option.dominant?.title ?? "No notes")
+                            .font(OneType.caption)
+                            .foregroundStyle(option.dominant?.tint(in: palette) ?? palette.subtext)
                         Text("\(option.noteCount)")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(OneType.caption)
                             .foregroundStyle(palette.subtext)
                     }
                     .frame(maxWidth: .infinity)
@@ -2059,7 +2129,7 @@ private struct NotesMonthPickerView: View {
                             .stroke(option.month == selectedMonth ? palette.accent : palette.border, lineWidth: 1)
                     )
                 }
-                .buttonStyle(.plain)
+                .onePressable(scale: 0.97)
             }
         }
     }
@@ -2091,14 +2161,20 @@ private struct NotesCalendarGridView: View {
 
             ForEach(options) { option in
                 Button {
+                    OneHaptics.shared.trigger(.selectionChanged)
                     onSelect(option.dateLocal)
                 } label: {
                     VStack(spacing: 4) {
                         Text("\(option.dayNumber)")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(OneType.label)
                             .foregroundStyle(palette.text)
-                        Text(option.sentiment?.emoji ?? (option.hasNotes ? "•" : " "))
-                            .font(.system(size: 13))
+                        Circle()
+                            .fill(option.sentiment?.tint(in: palette) ?? (option.hasNotes ? palette.subtext : Color.clear))
+                            .frame(width: 7, height: 7)
+                            .overlay(
+                                Circle()
+                                    .stroke(option.hasNotes ? Color.clear : palette.border.opacity(0.5), lineWidth: 1)
+                            )
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
@@ -2111,7 +2187,7 @@ private struct NotesCalendarGridView: View {
                             .stroke(option.dateLocal == selectedDateLocal ? palette.accent : palette.border, lineWidth: 1)
                     )
                 }
-                .buttonStyle(.plain)
+                .onePressable(scale: 0.96)
             }
         }
     }
@@ -2137,112 +2213,78 @@ private struct ProfileTabView: View {
 
     var body: some View {
         NavigationStack {
-            OneScrollScreen(palette: palette) {
-                OneHeroHeader(
-                    palette: palette,
-                    title: "Profile",
-                    subtitle: "Profile, appearance, and notifications."
-                ) {
-                    OneAvatarBadge(
-                        palette: palette,
-                        initials: OneDate.initials(from: profileViewModel.user?.displayName ?? "One")
-                    )
-                }
-
-                OneGlassCard(palette: palette) {
-                    OneField(title: "Display Name", text: $displayName, placeholder: "Your name")
-                    Text("Using device time: \(deviceTimezoneID)")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(palette.subtext)
-                        .fixedSize(horizontal: false, vertical: true)
-                    OneActionButton(palette: palette, title: "Save Profile", style: .primary) {
+            List {
+                Section("Account") {
+                    TextField("Your name", text: $displayName)
+                    LabeledContent("Time zone", value: deviceTimezoneID)
+                    Button("Save name") {
                         Task {
                             await profileViewModel.saveProfile(displayName: displayName)
                         }
                     }
                 }
 
-                OneSurfaceCard(palette: palette) {
-                    OneSectionHeading(palette: palette, title: "Appearance", meta: "Theme")
-                    OneSegmentedControl(
-                        palette: palette,
-                        options: [Theme.system, .light, .dark],
-                        selection: selectedTheme,
-                        title: { theme in
-                            switch theme {
-                            case .system: return "System"
-                            case .light: return "Light"
-                            case .dark: return "Dark"
-                            }
-                        }
-                    ) { theme in
-                        selectedTheme = theme
+                Section("Appearance") {
+                    Picker("Theme", selection: $selectedTheme) {
+                        Text("System").tag(Theme.system)
+                        Text("Light").tag(Theme.light)
+                        Text("Dark").tag(Theme.dark)
                     }
-                    OneActionButton(palette: palette, title: "Apply Theme", style: .secondary) {
+                    .pickerStyle(.segmented)
+                    .onChange(of: selectedTheme) { _, theme in
+                        OneHaptics.shared.trigger(.selectionChanged)
                         Task {
                             await profileViewModel.savePreferences(
-                                input: UserPreferencesUpdateInput(theme: selectedTheme)
+                                input: UserPreferencesUpdateInput(theme: theme)
                             )
                         }
                     }
                 }
 
-                OneSurfaceCard(palette: palette) {
-                    OneSectionHeading(palette: palette, title: "Settings", meta: "Shortcuts")
+                Section("Notifications") {
                     Button {
+                        OneHaptics.shared.trigger(.sheetPresented)
                         onOpenSheet(.notifications)
                     } label: {
-                        OneSettingsRow(
-                            palette: palette,
-                            icon: "bell.badge",
-                            title: "Notification Preferences",
-                            meta: notificationMeta,
-                            tail: nil
-                        )
+                        LabeledContent("Open notifications", value: notificationMeta)
                     }
-                    .buttonStyle(.plain)
-
-                    Divider().overlay(palette.border)
-
-                    Button {
-                        onOpenSheet(.coach)
-                    } label: {
-                        OneSettingsRow(
-                            palette: palette,
-                            icon: "sparkles",
-                            title: "Coach",
-                            meta: "Verse guidance and daily perspective",
-                            tail: coachViewModel.cards.first?.verseRef
-                        )
-                    }
-                    .buttonStyle(.plain)
                 }
 
-                OneSurfaceCard(palette: palette) {
-                    Button(role: .destructive) {
+                Section("Coach") {
+                    Button {
+                        OneHaptics.shared.trigger(.sheetPresented)
+                        onOpenSheet(.coach)
+                    } label: {
+                        LabeledContent("Open coach", value: coachViewModel.cards.first?.title ?? "Daily guidance that stays secondary.")
+                    }
+                }
+
+                Section("About") {
+                    Text("ONE is built for calm daily execution on iPhone. Data stays on this device unless you choose an account.")
+                }
+
+                Section {
+                    Button("Sign Out", role: .destructive) {
+                        OneHaptics.shared.trigger(.destructiveConfirmed)
                         Task {
                             await authViewModel.logout()
                         }
-                    } label: {
-                        HStack {
-                            Text("Sign Out")
-                                .font(.system(size: 15, weight: .semibold))
-                            Spacer()
-                            Image(systemName: "arrow.right.square")
-                        }
-                        .foregroundStyle(palette.danger)
                     }
-                    .buttonStyle(.plain)
-                    Text("Signing out closes this session but keeps your data on this device.")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(palette.subtext)
+                } footer: {
+                    Text("Signing out ends the current session on this device.")
                 }
 
                 if let message = profileViewModel.errorMessage {
-                    InlineStatusCard(message: message, kind: .danger, palette: palette)
+                    Section {
+                        InlineStatusCard(message: message, kind: .danger, palette: palette)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                    }
                 }
             }
-            .oneNavigationBarHidden()
+            .scrollContentBackground(.hidden)
+            .background(OneScreenBackground(palette: palette))
+            .navigationTitle("Settings")
+            .oneNavigationBarDisplayMode(.large)
             .onAppear {
                 hydrateFromLoadedData()
             }
@@ -2279,12 +2321,15 @@ private struct HabitFormSheet: View {
     let onSave: (HabitCreateInput) async -> Void
     let onCancel: () -> Void
 
+    @Environment(\.dismiss) private var dismiss
     @State private var title = ""
     @State private var selectedCategoryID = ""
     @State private var notes = ""
     @State private var recurrence = HabitRecurrenceRule()
-    @State private var priorityWeight = 50.0
-    @State private var preferredTime = ""
+    @State private var selectedPriorityTier: PriorityTier = .standard
+    @State private var usesPreferredTime = false
+    @State private var preferredTimeSelection = Date()
+    @State private var showsAdvanced = false
     @Environment(\.colorScheme) private var colorScheme
 
     private var palette: OneTheme.Palette {
@@ -2293,57 +2338,84 @@ private struct HabitFormSheet: View {
 
     var body: some View {
         NavigationStack {
-            OneScrollScreen(palette: palette, bottomPadding: 148) {
-                OneHeroHeader(
-                    palette: palette,
-                    title: "New Habit",
-                    subtitle: "Create a habit for the rhythm you want."
-                ) {
-                    OneChip(palette: palette, title: "Habit", kind: .strong)
-                }
-
-                OneGlassCard(palette: palette) {
-                    OneField(title: "Title", text: $title, placeholder: "Morning workout")
-                    PickerCard(
-                        palette: palette,
-                        title: "Category",
-                        selection: $selectedCategoryID,
-                        options: categories.map { ($0.id, $0.name) }
-                    )
-                    RecurrenceBuilderCard(palette: palette, recurrence: $recurrence)
-                    OneTextEditorField(title: "Notes", text: $notes, placeholder: "Optional context")
-                    SliderCard(palette: palette, title: "Priority Weight", value: $priorityWeight, range: 0...100)
-                    OneField(title: "Preferred Time", text: $preferredTime, placeholder: "06:30")
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                OneGlassCard(palette: palette, padding: 10) {
-                    VStack(spacing: 10) {
-                        OneActionButton(palette: palette, title: "Save Habit", style: .primary) {
-                            Task {
-                                await onSave(
-                                    HabitCreateInput(
-                                        categoryId: selectedCategoryID,
-                                        title: title,
-                                        notes: notes,
-                                        recurrenceRule: recurrence.rawValue,
-                                        priorityWeight: Int(priorityWeight),
-                                        preferredTime: preferredTime.isEmpty ? nil : preferredTime
-                                    )
-                                )
-                            }
-                        }
-                        .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedCategoryID.isEmpty)
-
-                        OneActionButton(palette: palette, title: "Cancel", style: .secondary) {
-                            onCancel()
+            Form {
+                Section("Habit") {
+                    TextField("Morning workout", text: $title)
+                    Picker("Category", selection: $selectedCategoryID) {
+                        ForEach(categories, id: \.id) { category in
+                            Text(category.name).tag(category.id)
                         }
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
+
+                Section("Schedule") {
+                    RecurrenceBuilderCard(palette: palette, recurrence: $recurrence)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+
+                    Toggle("Preferred time", isOn: $usesPreferredTime)
+                    if usesPreferredTime {
+                        DatePicker("Time", selection: $preferredTimeSelection, displayedComponents: [.hourAndMinute])
+                    }
+                }
+
+                Section {
+                    PriorityTierSelector(
+                        palette: palette,
+                        title: "Focus level",
+                        subtitle: "High and urgent habits stay more visible in Today.",
+                        selection: selectedPriorityTier
+                    ) { tier in
+                        selectedPriorityTier = tier
+                    }
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                }
+
+                Section {
+                    Button(showsAdvanced ? "Hide more options" : "More options") {
+                        withAnimation(OneMotion.animation(.expand)) {
+                            showsAdvanced.toggle()
+                        }
+                    }
+                }
+
+                if showsAdvanced {
+                    Section("Notes") {
+                        OneTextEditorField(title: "Notes", text: $notes, placeholder: "Optional context")
+                            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                    }
+                }
             }
-            .oneNavigationBarHidden()
+            .scrollContentBackground(.hidden)
+            .background(OneScreenBackground(palette: palette))
+            .navigationTitle("Add Habit")
+            .oneNavigationBarDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .oneNavigationLeading) {
+                    Button("Cancel") {
+                        OneHaptics.shared.trigger(.sheetDismissed)
+                        onCancel()
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .oneNavigationTrailing) {
+                    Button("Add") {
+                        Task {
+                            await onSave(
+                                HabitCreateInput(
+                                    categoryId: selectedCategoryID,
+                                    title: title,
+                                    notes: notes,
+                                    recurrenceRule: recurrence.rawValue,
+                                    priorityWeight: selectedPriorityTier.representativeValue,
+                                    preferredTime: usesPreferredTime ? OneTimeValueFormatter.string(from: preferredTimeSelection) : nil
+                                )
+                            )
+                        }
+                    }
+                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedCategoryID.isEmpty)
+                    .fontWeight(.semibold)
+                }
+            }
             .onAppear {
                 if selectedCategoryID.isEmpty {
                     selectedCategoryID = categories.first?.id ?? ""
@@ -2358,13 +2430,14 @@ private struct TodoFormSheet: View {
     let onSave: (TodoCreateInput) async -> Void
     let onCancel: () -> Void
 
+    @Environment(\.dismiss) private var dismiss
     @State private var title = ""
     @State private var notes = ""
     @State private var selectedCategoryID = ""
-    @State private var priority = 50.0
-    @State private var isPinned = false
+    @State private var selectedPriorityTier: PriorityTier = .standard
     @State private var hasDueDate = false
     @State private var dueDate = Date()
+    @State private var showsAdvanced = false
     @Environment(\.colorScheme) private var colorScheme
 
     private var palette: OneTheme.Palette {
@@ -2373,60 +2446,81 @@ private struct TodoFormSheet: View {
 
     var body: some View {
         NavigationStack {
-            OneScrollScreen(palette: palette, bottomPadding: 148) {
-                OneHeroHeader(
-                    palette: palette,
-                    title: "New Todo",
-                    subtitle: "Capture one-off work that matters."
-                ) {
-                    OneChip(palette: palette, title: "Todo", kind: .strong)
+            Form {
+                Section("Task") {
+                    TextField("Submit project draft", text: $title)
+                    Picker("Category", selection: $selectedCategoryID) {
+                        ForEach(categories, id: \.id) { category in
+                            Text(category.name).tag(category.id)
+                        }
+                    }
                 }
 
-                OneGlassCard(palette: palette) {
-                    OneField(title: "Title", text: $title, placeholder: "Submit project draft")
-                    PickerCard(
-                        palette: palette,
-                        title: "Category",
-                        selection: $selectedCategoryID,
-                        options: categories.map { ($0.id, $0.name) }
-                    )
-                    OneTextEditorField(title: "Notes", text: $notes, placeholder: "Optional context")
-                    SliderCard(palette: palette, title: "Priority", value: $priority, range: 0...100)
-                    ToggleCard(palette: palette, title: "Pin as urgent", subtitle: "Places the todo above habits in Today.", isOn: $isPinned)
-                    ToggleCard(palette: palette, title: "Set due date", subtitle: "Makes urgency visible in Today.", isOn: $hasDueDate)
+                Section("Timing") {
+                    Toggle("Due date", isOn: $hasDueDate)
                     if hasDueDate {
-                        DatePickerCard(palette: palette, title: "Due date", selection: $dueDate)
+                        DatePicker("Due date", selection: $dueDate)
                     }
                 }
-            }
-            .safeAreaInset(edge: .bottom) {
-                OneGlassCard(palette: palette, padding: 10) {
-                    VStack(spacing: 10) {
-                        OneActionButton(palette: palette, title: "Save Todo", style: .primary) {
-                            Task {
-                                await onSave(
-                                    TodoCreateInput(
-                                        categoryId: selectedCategoryID,
-                                        title: title,
-                                        notes: notes,
-                                        dueAt: hasDueDate ? dueDate : nil,
-                                        priority: Int(priority),
-                                        isPinned: isPinned
-                                    )
-                                )
-                            }
-                        }
-                        .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedCategoryID.isEmpty)
 
-                        OneActionButton(palette: palette, title: "Cancel", style: .secondary) {
-                            onCancel()
+                Section {
+                    PriorityTierSelector(
+                        palette: palette,
+                        title: "Focus level",
+                        subtitle: "Urgent tasks stay at the top of Today.",
+                        selection: selectedPriorityTier
+                    ) { tier in
+                        selectedPriorityTier = tier
+                    }
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                }
+
+                Section {
+                    Button(showsAdvanced ? "Hide more options" : "More options") {
+                        withAnimation(OneMotion.animation(.expand)) {
+                            showsAdvanced.toggle()
                         }
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
+
+                if showsAdvanced {
+                    Section("Notes") {
+                        OneTextEditorField(title: "Notes", text: $notes, placeholder: "Optional context")
+                            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                    }
+                }
             }
-            .oneNavigationBarHidden()
+            .scrollContentBackground(.hidden)
+            .background(OneScreenBackground(palette: palette))
+            .navigationTitle("Add Task")
+            .oneNavigationBarDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .oneNavigationLeading) {
+                    Button("Cancel") {
+                        OneHaptics.shared.trigger(.sheetDismissed)
+                        onCancel()
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .oneNavigationTrailing) {
+                    Button("Add") {
+                        Task {
+                            await onSave(
+                                TodoCreateInput(
+                                    categoryId: selectedCategoryID,
+                                    title: title,
+                                    notes: notes,
+                                    dueAt: hasDueDate ? dueDate : nil,
+                                    priority: selectedPriorityTier.representativeValue,
+                                    isPinned: selectedPriorityTier == .urgent
+                                )
+                            )
+                        }
+                    }
+                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedCategoryID.isEmpty)
+                    .fontWeight(.semibold)
+                }
+            }
             .onAppear {
                 if selectedCategoryID.isEmpty {
                     selectedCategoryID = categories.first?.id ?? ""
@@ -2444,12 +2538,16 @@ private struct HabitDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
+    @State private var selectedCategoryID = ""
     @State private var notes = ""
     @State private var recurrenceRule = HabitRecurrenceRule()
-    @State private var preferredTime = ""
-    @State private var priorityWeight = 50.0
+    @State private var selectedPriorityTier: PriorityTier = .standard
     @State private var isActive = true
     @State private var stats: HabitStats?
+    @State private var pendingDelete = false
+    @State private var usesPreferredTime = false
+    @State private var preferredTimeSelection = Date()
+    @State private var showsAdvanced = false
     @Environment(\.colorScheme) private var colorScheme
 
     private var palette: OneTheme.Palette {
@@ -2461,73 +2559,103 @@ private struct HabitDetailView: View {
     }
 
     var body: some View {
-        OneScrollScreen(palette: palette, bottomPadding: 158) {
-            OneHeroHeader(
-                palette: palette,
-                title: "Habit Detail",
-                subtitle: "Update the habit and review recent consistency."
-            ) {
-                OneChip(palette: palette, title: isActive ? "Active" : "Paused", kind: isActive ? .success : .neutral)
+        Form {
+            Section("Overview") {
+                LabeledContent("Schedule", value: recurrenceRule.summary)
+                LabeledContent("Status", value: isActive ? "Active" : "Paused")
+                LabeledContent("Focus level", value: selectedPriorityTier.title)
+                if let stats {
+                    LabeledContent("Current streak", value: "\(stats.streakCurrent)")
+                    LabeledContent("Completed", value: "\(stats.completedWindow)")
+                    LabeledContent("Completion", value: "\(Int(stats.completionRateWindow * 100))%")
+                }
+                if usesPreferredTime {
+                    LabeledContent("Preferred time", value: OneDate.timeString(from: preferredTimeSelection))
+                }
             }
 
-            OneGlassCard(palette: palette) {
-                OneField(title: "Title", text: $title, placeholder: "Habit name")
-                OneTextEditorField(title: "Notes", text: $notes, placeholder: "Optional context")
-                RecurrenceBuilderCard(palette: palette, recurrence: $recurrenceRule)
-                OneField(title: "Preferred Time", text: $preferredTime, placeholder: "06:30")
-                SliderCard(palette: palette, title: "Priority Weight", value: $priorityWeight, range: 0...100)
-                ToggleCard(palette: palette, title: "Active", subtitle: "Paused habits stay out of Today.", isOn: $isActive)
-            }
-
-            if let stats {
-                OneSurfaceCard(palette: palette) {
-                    OneSectionHeading(palette: palette, title: "30-day metrics", meta: stats.anchorDate)
-                    HStack(spacing: 10) {
-                        SummaryMetricTile(palette: palette, title: "Current Streak", value: "\(stats.streakCurrent)")
-                        SummaryMetricTile(palette: palette, title: "Completed", value: "\(stats.completedWindow)")
-                        SummaryMetricTile(palette: palette, title: "Expected", value: "\(stats.expectedWindow)")
-                    }
-                    HStack(spacing: 10) {
-                        SummaryMetricTile(palette: palette, title: "Rate", value: "\(Int(stats.completionRateWindow * 100))%")
-                        SummaryMetricTile(palette: palette, title: "Last Done", value: stats.lastCompletedDate ?? "-")
+            Section("Details") {
+                TextField("Habit name", text: $title)
+                Picker("Category", selection: $selectedCategoryID) {
+                    ForEach(tasksViewModel.categories, id: \.id) { category in
+                        Text(category.name).tag(category.id)
                     }
                 }
+                Toggle("Active", isOn: $isActive)
+                Toggle("Preferred time", isOn: $usesPreferredTime)
+                if usesPreferredTime {
+                    DatePicker("Time", selection: $preferredTimeSelection, displayedComponents: [.hourAndMinute])
+                }
+            }
+
+            Section("Schedule builder") {
+                RecurrenceBuilderCard(palette: palette, recurrence: $recurrenceRule)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+            }
+
+            Section {
+                PriorityTierSelector(
+                    palette: palette,
+                    title: "Focus level",
+                    subtitle: "Paused habits stay out of Today. Higher focus levels stay visible when active.",
+                    selection: selectedPriorityTier
+                ) { tier in
+                    selectedPriorityTier = tier
+                }
+                .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+            }
+
+            Section {
+                Button(showsAdvanced ? "Hide more options" : "More options") {
+                    withAnimation(OneMotion.animation(.expand)) {
+                        showsAdvanced.toggle()
+                    }
+                }
+            }
+
+            if showsAdvanced {
+                Section("Notes") {
+                    OneTextEditorField(title: "Notes", text: $notes, placeholder: "Optional context")
+                        .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                }
+            }
+
+            Section {
+                Button("Delete habit", role: .destructive) {
+                    pendingDelete = true
+                }
+            } footer: {
+                Text("Deleting this habit removes it from future schedules.")
             }
         }
-        .oneInlineNavigationBarTitle()
-        .safeAreaInset(edge: .bottom) {
-            OneGlassCard(palette: palette, padding: 10) {
-                VStack(spacing: 10) {
-                    OneActionButton(palette: palette, title: "Save Changes", style: .primary) {
-                        Task {
-                            _ = await tasksViewModel.updateHabit(
-                                id: habitId,
-                                input: HabitUpdateInput(
-                                    title: title,
-                                    notes: notes,
-                                    recurrenceRule: recurrenceRule.rawValue,
-                                    priorityWeight: Int(priorityWeight),
-                                    preferredTime: preferredTime.isEmpty ? nil : preferredTime,
-                                    isActive: isActive
-                                )
+        .scrollContentBackground(.hidden)
+        .background(OneScreenBackground(palette: palette))
+        .navigationTitle(habit?.title ?? "Habit")
+        .oneNavigationBarDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .oneNavigationTrailing) {
+                Button("Save") {
+                    Task {
+                        guard await tasksViewModel.updateHabit(
+                            id: habitId,
+                            input: HabitUpdateInput(
+                                categoryId: selectedCategoryID,
+                                title: title,
+                                notes: notes,
+                                recurrenceRule: recurrenceRule.rawValue,
+                                priorityWeight: selectedPriorityTier.representativeValue,
+                                preferredTime: usesPreferredTime ? OneTimeValueFormatter.string(from: preferredTimeSelection) : nil,
+                                isActive: isActive
                             )
-                            await onSave()
-                            dismiss()
+                        ) != nil else {
+                            return
                         }
+                        await onSave()
+                        dismiss()
                     }
-                    OneActionButton(palette: palette, title: "Delete Habit", style: .secondary) {
-                        Task {
-                            if await tasksViewModel.deleteHabit(id: habitId) {
-                                await onSave()
-                                dismiss()
-                            }
-                        }
-                    }
-                    .tint(palette.danger)
                 }
+                .fontWeight(.semibold)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
         }
         .task {
             if tasksViewModel.habits.isEmpty {
@@ -2536,6 +2664,20 @@ private struct HabitDetailView: View {
             hydrateFromHabit()
             stats = await tasksViewModel.loadHabitStats(habitId: habitId, anchorDate: anchorDate, windowDays: 30)
         }
+        .confirmationDialog("Delete this habit?", isPresented: $pendingDelete, titleVisibility: .visible) {
+            Button("Delete habit", role: .destructive) {
+                OneHaptics.shared.trigger(.destructiveConfirmed)
+                Task {
+                    if await tasksViewModel.deleteHabit(id: habitId) {
+                        await onSave()
+                        dismiss()
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes the habit from future schedules.")
+        }
     }
 
     private func hydrateFromHabit() {
@@ -2543,11 +2685,15 @@ private struct HabitDetailView: View {
             return
         }
         title = habit.title
+        selectedCategoryID = habit.categoryId
         notes = habit.notes
         recurrenceRule = HabitRecurrenceRule(rawValue: habit.recurrenceRule)
-        preferredTime = habit.preferredTime ?? ""
-        priorityWeight = Double(habit.priorityWeight)
+        selectedPriorityTier = habit.priorityTier
         isActive = habit.isActive
+        usesPreferredTime = habit.preferredTime != nil
+        if let preferredTime = OneTimeValueFormatter.date(from: habit.preferredTime) {
+            preferredTimeSelection = preferredTime
+        }
     }
 }
 
@@ -2558,12 +2704,14 @@ private struct TodoDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
+    @State private var selectedCategoryID = ""
     @State private var notes = ""
-    @State private var priority = 50.0
-    @State private var isPinned = false
+    @State private var selectedPriorityTier: PriorityTier = .standard
     @State private var status: TodoStatus = .open
     @State private var hasDueDate = false
     @State private var dueDate = Date()
+    @State private var pendingDelete = false
+    @State private var showsAdvanced = false
     @Environment(\.colorScheme) private var colorScheme
 
     private var palette: OneTheme.Palette {
@@ -2575,71 +2723,114 @@ private struct TodoDetailView: View {
     }
 
     var body: some View {
-        OneScrollScreen(palette: palette, bottomPadding: 158) {
-            OneHeroHeader(
-                palette: palette,
-                title: "Todo Detail",
-                subtitle: "Update the task and keep its urgency clear."
-            ) {
-                OneChip(
-                    palette: palette,
-                    title: isPinned ? "Pinned" : "Standard",
-                    kind: isPinned ? .danger : .neutral
-                )
+        Form {
+            Section("Overview") {
+                LabeledContent("Status", value: statusTitle)
+                LabeledContent("Focus level", value: selectedPriorityTier.title)
+                LabeledContent("Due", value: hasDueDate ? OneDate.dateTimeString(from: dueDate) : "No due date")
             }
 
-            OneGlassCard(palette: palette) {
-                OneField(title: "Title", text: $title, placeholder: "Todo title")
-                OneTextEditorField(title: "Notes", text: $notes, placeholder: "Optional context")
-                SliderCard(palette: palette, title: "Priority", value: $priority, range: 0...100)
-                ToggleCard(palette: palette, title: "Pin as urgent", subtitle: "Moves this above habits in Today.", isOn: $isPinned)
-                StatusPickerCard(palette: palette, selection: $status)
-                ToggleCard(palette: palette, title: "Due date", subtitle: hasDueDate ? OneDate.dateTimeString(from: dueDate) : "No due date", isOn: $hasDueDate)
-                if hasDueDate {
-                    DatePickerCard(palette: palette, title: "Due at", selection: $dueDate)
+            Section("Details") {
+                TextField("Task title", text: $title)
+                Picker("Category", selection: $selectedCategoryID) {
+                    ForEach(tasksViewModel.categories, id: \.id) { category in
+                        Text(category.name).tag(category.id)
+                    }
                 }
+                Picker("Status", selection: $status) {
+                    Text("Open").tag(TodoStatus.open)
+                    Text("Completed").tag(TodoStatus.completed)
+                    Text("Canceled").tag(TodoStatus.canceled)
+                }
+                Toggle("Due date", isOn: $hasDueDate)
+                if hasDueDate {
+                    DatePicker("Due at", selection: $dueDate)
+                }
+            }
+
+            Section {
+                PriorityTierSelector(
+                    palette: palette,
+                    title: "Focus level",
+                    subtitle: "Urgent tasks stay at the top of Today.",
+                    selection: selectedPriorityTier
+                ) { tier in
+                    selectedPriorityTier = tier
+                }
+                .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+            }
+
+            Section {
+                Button(showsAdvanced ? "Hide more options" : "More options") {
+                    withAnimation(OneMotion.animation(.expand)) {
+                        showsAdvanced.toggle()
+                    }
+                }
+            }
+
+            if showsAdvanced {
+                Section("Notes") {
+                    OneTextEditorField(title: "Notes", text: $notes, placeholder: "Optional context")
+                        .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                }
+            }
+
+            Section {
+                Button("Delete task", role: .destructive) {
+                    pendingDelete = true
+                }
+            } footer: {
+                Text("Deleting this task removes it from Today and future follow-up.")
             }
         }
-        .oneInlineNavigationBarTitle()
-        .safeAreaInset(edge: .bottom) {
-            OneGlassCard(palette: palette, padding: 10) {
-                VStack(spacing: 10) {
-                    OneActionButton(palette: palette, title: "Save Changes", style: .primary) {
-                        Task {
-                            _ = await tasksViewModel.updateTodo(
-                                id: todoId,
-                                input: TodoUpdateInput(
-                                    title: title,
-                                    notes: notes,
-                                    dueAt: hasDueDate ? dueDate : nil,
-                                    priority: Int(priority),
-                                    isPinned: isPinned,
-                                    status: status
-                                )
+        .scrollContentBackground(.hidden)
+        .background(OneScreenBackground(palette: palette))
+        .navigationTitle(todo?.title ?? "Task")
+        .oneNavigationBarDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .oneNavigationTrailing) {
+                Button("Save") {
+                    Task {
+                        guard await tasksViewModel.updateTodo(
+                            id: todoId,
+                            input: TodoUpdateInput(
+                                categoryId: selectedCategoryID,
+                                title: title,
+                                notes: notes,
+                                dueAt: hasDueDate ? dueDate : nil,
+                                priority: selectedPriorityTier.representativeValue,
+                                isPinned: selectedPriorityTier == .urgent,
+                                status: status
                             )
-                            await onSave()
-                            dismiss()
+                        ) != nil else {
+                            return
                         }
+                        await onSave()
+                        dismiss()
                     }
-                    OneActionButton(palette: palette, title: "Delete Todo", style: .secondary) {
-                        Task {
-                            if await tasksViewModel.deleteTodo(id: todoId) {
-                                await onSave()
-                                dismiss()
-                            }
-                        }
-                    }
-                    .tint(palette.danger)
                 }
+                .fontWeight(.semibold)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
         }
         .task {
             if tasksViewModel.todos.isEmpty {
                 await tasksViewModel.loadTasks()
             }
             hydrateFromTodo()
+        }
+        .confirmationDialog("Delete this task?", isPresented: $pendingDelete, titleVisibility: .visible) {
+            Button("Delete task", role: .destructive) {
+                OneHaptics.shared.trigger(.destructiveConfirmed)
+                Task {
+                    if await tasksViewModel.deleteTodo(id: todoId) {
+                        await onSave()
+                        dismiss()
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes the task from Today and future follow-up.")
         }
     }
 
@@ -2648,13 +2839,24 @@ private struct TodoDetailView: View {
             return
         }
         title = todo.title
+        selectedCategoryID = todo.categoryId
         notes = todo.notes
-        priority = Double(todo.priority)
-        isPinned = todo.isPinned
+        selectedPriorityTier = todo.priorityTier
         status = todo.status
         hasDueDate = todo.dueAt != nil
         if let dueAt = todo.dueAt {
             dueDate = dueAt
+        }
+    }
+
+    private var statusTitle: String {
+        switch status {
+        case .open:
+            return "Open"
+        case .completed:
+            return "Completed"
+        case .canceled:
+            return "Canceled"
         }
     }
 }
@@ -2663,12 +2865,13 @@ private struct NotificationPreferencesView: View {
     @ObservedObject var profileViewModel: ProfileViewModel
     let onClose: () -> Void
 
+    @Environment(\.dismiss) private var dismiss
     @State private var habitReminders = true
     @State private var todoReminders = true
     @State private var reflectionPrompts = true
     @State private var weeklySummary = true
-    @State private var quietHoursStart = "22:00:00"
-    @State private var quietHoursEnd = "07:00:00"
+    @State private var quietHoursStartSelection = OneTimeValueFormatter.date(from: "22:00:00") ?? Date()
+    @State private var quietHoursEndSelection = OneTimeValueFormatter.date(from: "07:00:00") ?? Date()
     @State private var coachEnabled = true
     @Environment(\.colorScheme) private var colorScheme
 
@@ -2678,76 +2881,89 @@ private struct NotificationPreferencesView: View {
 
     var body: some View {
         NavigationStack {
-            OneScrollScreen(palette: palette, bottomPadding: 148) {
-                OneHeroHeader(
-                    palette: palette,
-                    title: "Notifications",
-                    subtitle: "Local reminders only. Quiet hours and module flags stay on-device."
-                ) {
-                    OneChip(
-                        palette: palette,
-                        title: profileViewModel.notificationStatus?.permissionGranted == true ? "Enabled" : "Needs permission",
-                        kind: profileViewModel.notificationStatus?.permissionGranted == true ? .success : .danger
-                    )
+            Form {
+                Section("Reminder types") {
+                    Toggle("Habit reminders", isOn: $habitReminders)
+                    Toggle("Task reminders", isOn: $todoReminders)
+                    Toggle("Notes prompts", isOn: $reflectionPrompts)
+                    Toggle("Weekly summary", isOn: $weeklySummary)
+                    Toggle("Coach prompts", isOn: $coachEnabled)
                 }
 
-                OneGlassCard(palette: palette) {
-                    ToggleCard(palette: palette, title: "Habit reminders", subtitle: "Use preferred habit times.", isOn: $habitReminders)
-                    ToggleCard(palette: palette, title: "Todo reminders", subtitle: "Use due dates when available.", isOn: $todoReminders)
-                    ToggleCard(palette: palette, title: "Reflection prompts", subtitle: "Nudge at the end of the day.", isOn: $reflectionPrompts)
-                    ToggleCard(palette: palette, title: "Weekly summary", subtitle: "Prompt a weekly review.", isOn: $weeklySummary)
-                    ToggleCard(palette: palette, title: "Coach enabled", subtitle: "Allow coach prompts in reminder scheduling.", isOn: $coachEnabled)
-                    OneField(title: "Quiet Start", text: $quietHoursStart, placeholder: "22:00:00")
-                    OneField(title: "Quiet End", text: $quietHoursEnd, placeholder: "07:00:00")
+                Section {
+                    DatePicker("Starts", selection: $quietHoursStartSelection, displayedComponents: [.hourAndMinute])
+                    DatePicker("Ends", selection: $quietHoursEndSelection, displayedComponents: [.hourAndMinute])
+                } header: {
+                    Text("Quiet hours")
+                } footer: {
+                    Text("Quiet hours silence reminders between the times you set here.")
                 }
 
                 if let status = profileViewModel.notificationStatus {
-                    OneSurfaceCard(palette: palette) {
-                        OneSectionHeading(palette: palette, title: "Schedule health", meta: status.permissionGranted ? "Permission granted" : "Permission not granted")
-                        HStack(spacing: 10) {
-                            SummaryMetricTile(palette: palette, title: "Scheduled", value: "\(status.scheduledCount)")
-                            SummaryMetricTile(palette: palette, title: "Permission", value: status.permissionGranted ? "On" : "Off")
-                        }
+                    Section {
+                        LabeledContent("Permission", value: status.permissionGranted ? "On" : "Off")
+                        LabeledContent("Scheduled", value: "\(status.scheduledCount)")
                         if let lastRefreshedAt = status.lastRefreshedAt {
-                            Text("Last refreshed: \(lastRefreshedAt.formatted(date: .abbreviated, time: .shortened))")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(palette.subtext)
+                            LabeledContent("Last refreshed", value: lastRefreshedAt.formatted(date: .abbreviated, time: .shortened))
+                        }
+                        Button("Refresh schedules") {
+                            Task {
+                                await profileViewModel.refreshSchedules()
+                            }
+                        }
+                        if !status.permissionGranted {
+                            Button("Open iPhone Settings") {
+                                openSystemSettings()
+                            }
                         }
                         if let error = status.lastError, !error.isEmpty {
                             InlineStatusCard(message: error, kind: .danger, palette: palette)
+                                .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
                         }
+                    } header: {
+                        Text("Schedule status")
+                    } footer: {
+                        Text(
+                            status.permissionGranted
+                            ? "Reminders are being scheduled on this device."
+                            : "Reminder scheduling needs notification permission in iOS Settings."
+                        )
                     }
                 }
             }
-            .safeAreaInset(edge: .bottom) {
-                OneGlassCard(palette: palette, padding: 10) {
-                    VStack(spacing: 10) {
-                        OneActionButton(palette: palette, title: "Save Preferences", style: .primary) {
-                            Task {
-                                await profileViewModel.savePreferences(
-                                    input: UserPreferencesUpdateInput(
-                                        quietHoursStart: quietHoursStart,
-                                        quietHoursEnd: quietHoursEnd,
-                                        notificationFlags: [
-                                            "habit_reminders": habitReminders,
-                                            "todo_reminders": todoReminders,
-                                            "reflection_prompts": reflectionPrompts,
-                                            "weekly_summary": weeklySummary,
-                                        ],
-                                        coachEnabled: coachEnabled
-                                    )
+            .scrollContentBackground(.hidden)
+            .background(OneScreenBackground(palette: palette))
+            .navigationTitle("Notifications")
+            .oneNavigationBarDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .oneNavigationLeading) {
+                    Button("Done") {
+                        OneHaptics.shared.trigger(.sheetDismissed)
+                        onClose()
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .oneNavigationTrailing) {
+                    Button("Save") {
+                        Task {
+                            await profileViewModel.savePreferences(
+                                input: UserPreferencesUpdateInput(
+                                    quietHoursStart: OneTimeValueFormatter.string(from: quietHoursStartSelection),
+                                    quietHoursEnd: OneTimeValueFormatter.string(from: quietHoursEndSelection),
+                                    notificationFlags: [
+                                        "habit_reminders": habitReminders,
+                                        "todo_reminders": todoReminders,
+                                        "reflection_prompts": reflectionPrompts,
+                                        "weekly_summary": weeklySummary,
+                                    ],
+                                    coachEnabled: coachEnabled
                                 )
-                            }
-                        }
-                        OneActionButton(palette: palette, title: "Done", style: .secondary) {
-                            onClose()
+                            )
                         }
                     }
+                    .fontWeight(.semibold)
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
             }
-            .oneNavigationBarHidden()
             .task {
                 if profileViewModel.preferences == nil {
                     await profileViewModel.load()
@@ -2766,9 +2982,22 @@ private struct NotificationPreferencesView: View {
         todoReminders = preferences.notificationFlags["todo_reminders"] ?? true
         reflectionPrompts = preferences.notificationFlags["reflection_prompts"] ?? true
         weeklySummary = preferences.notificationFlags["weekly_summary"] ?? true
-        quietHoursStart = preferences.quietHoursStart ?? quietHoursStart
-        quietHoursEnd = preferences.quietHoursEnd ?? quietHoursEnd
+        if let quietHoursStart = OneTimeValueFormatter.date(from: preferences.quietHoursStart) {
+            quietHoursStartSelection = quietHoursStart
+        }
+        if let quietHoursEnd = OneTimeValueFormatter.date(from: preferences.quietHoursEnd) {
+            quietHoursEndSelection = quietHoursEnd
+        }
         coachEnabled = preferences.coachEnabled
+    }
+
+    private func openSystemSettings() {
+        #if os(iOS)
+        guard let url = URL(string: UIApplication.openSettingsURLString) else {
+            return
+        }
+        UIApplication.shared.open(url)
+        #endif
     }
 }
 
@@ -2783,59 +3012,62 @@ private struct CoachSheetView: View {
 
     var body: some View {
         NavigationStack {
-            OneScrollScreen(palette: palette, bottomPadding: 110) {
-                OneHeroHeader(
-                    palette: palette,
-                    title: "Coach",
-                    subtitle: "Supportive content that stays accessible but never blocks execution."
-                ) {
-                    OneChip(palette: palette, title: "Secondary", kind: .neutral)
-                }
-
+            OneScrollScreen(palette: palette, bottomPadding: 36) {
                 if viewModel.cards.isEmpty {
                     EmptyStateCard(
                         palette: palette,
-                        title: "No coach cards available",
-                        message: "Bundled coach content will appear here when active."
+                        title: "No coach content yet",
+                        message: "Guidance will appear here when it is available."
                     )
+                    .oneEntranceReveal(index: 1)
                 } else {
-                    ForEach(viewModel.cards) { card in
+                    if let featuredCard = viewModel.cards.first {
                         OneGlassCard(palette: palette) {
+                            Text("Today")
+                                .font(OneType.label)
+                                .foregroundStyle(palette.highlight)
+                            Text(featuredCard.title)
+                                .font(OneType.title)
+                                .foregroundStyle(palette.text)
+                            Text(featuredCard.body)
+                                .font(OneType.body)
+                                .foregroundStyle(palette.subtext)
+                                .fixedSize(horizontal: false, vertical: true)
+                            CoachVerseBlock(palette: palette, card: featuredCard)
+                        }
+                        .oneEntranceReveal(index: 0)
+                    }
+
+                    ForEach(Array(viewModel.cards.dropFirst().enumerated()), id: \.element.id) { index, card in
+                        OneSurfaceCard(palette: palette) {
                             Text(card.title)
-                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .font(OneType.sectionTitle)
                                 .foregroundStyle(palette.text)
                             Text(card.body)
-                                .font(.system(size: 14, weight: .medium))
+                                .font(OneType.body)
                                 .foregroundStyle(palette.subtext)
                                 .fixedSize(horizontal: false, vertical: true)
                             CoachVerseBlock(palette: palette, card: card)
-                            if !card.tags.isEmpty {
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 8) {
-                                        ForEach(card.tags, id: \.self) { tag in
-                                            OneChip(palette: palette, title: tag, kind: .neutral)
-                                        }
-                                    }
-                                }
-                            }
                         }
+                        .oneEntranceReveal(index: index + 1)
                     }
                 }
 
                 if let message = viewModel.errorMessage {
                     InlineStatusCard(message: message, kind: .danger, palette: palette)
+                        .oneEntranceReveal(index: 4)
                 }
             }
-            .safeAreaInset(edge: .bottom) {
-                OneGlassCard(palette: palette, padding: 10) {
-                    OneActionButton(palette: palette, title: "Done", style: .primary) {
+            .navigationTitle("Coach")
+            .oneNavigationBarDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .oneNavigationTrailing) {
+                    Button("Done") {
+                        OneHaptics.shared.trigger(.sheetDismissed)
                         onClose()
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
             }
-            .oneNavigationBarHidden()
             .task {
                 if viewModel.cards.isEmpty {
                     await viewModel.load()
@@ -2851,17 +3083,51 @@ private struct TodayItemCard<Destination: View>: View {
     let categoryName: String
     let categoryIcon: String
     let isReordering: Bool
+    let isHighlighted: Bool
     let onToggle: () -> Void
     @ViewBuilder let destination: Destination
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var supportingLine: String? {
         if let dueAt = item.dueAt {
             return "Due \(OneDate.dateTimeString(from: dueAt))"
         }
         if let preferredTime = item.preferredTime, !preferredTime.isEmpty {
+            if let parsedPreferredTime = OneTimeValueFormatter.date(from: preferredTime) {
+                return "Around \(OneDate.timeString(from: parsedPreferredTime))"
+            }
             return "Around \(preferredTime)"
         }
         return item.subtitle?.hasPrefix("Habit ·") == true ? nil : item.subtitle
+    }
+
+    private var itemTypeTitle: String {
+        item.itemType == .habit ? "Habit" : "Task"
+    }
+
+    private var metadataLine: String {
+        [itemTypeTitle, categoryName].joined(separator: " · ")
+    }
+
+    private var priorityTier: PriorityTier {
+        item.priorityTier
+    }
+
+    private var isOverdue: Bool {
+        guard let dueAt = item.dueAt, !item.completed else {
+            return false
+        }
+        return dueAt < Date()
+    }
+
+    private var emphasisColor: Color {
+        if isOverdue || priorityTier == .urgent {
+            return palette.danger
+        }
+        if priorityTier == .high {
+            return palette.highlight
+        }
+        return palette.accent
     }
 
     var body: some View {
@@ -2871,36 +3137,39 @@ private struct TodayItemCard<Destination: View>: View {
                     Image(systemName: item.completed ? "checkmark.circle.fill" : "circle")
                         .font(.system(size: 24, weight: .semibold))
                         .foregroundStyle(item.completed ? palette.success : palette.subtext)
+                        .scaleEffect(isHighlighted && !reduceMotion ? 1.08 : 1)
                 }
-                .buttonStyle(.plain)
+                .onePressable(scale: 0.92, opacity: 0.85)
                 .padding(.top, 2)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(alignment: .center, spacing: 8) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(item.title)
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(item.completed ? palette.subtext : palette.text)
                             .strikethrough(item.completed, color: palette.subtext)
-                        if item.completed {
-                            OneChip(palette: palette, title: "Done", kind: .success)
+                        if priorityTier == .high || priorityTier == .urgent {
+                            Text(priorityTier.title)
+                                .font(OneType.caption.weight(.semibold))
+                                .foregroundStyle(emphasisColor)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(
+                                    Capsule(style: .continuous)
+                                        .fill(emphasisColor.opacity(0.12))
+                                )
                         }
                     }
                     if let supportingLine, !supportingLine.isEmpty {
                         Text(supportingLine)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(palette.subtext)
+                            .font(OneType.secondary)
+                            .foregroundStyle(isOverdue ? palette.danger : palette.subtext)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    HStack(spacing: 8) {
-                        EmojiBadge(symbol: item.itemType == .habit ? "🔁" : "☑️", palette: palette)
-                        EmojiBadge(symbol: categoryIcon, palette: palette, accessibilityLabel: categoryName)
-                        if item.isPinned == true {
-                            SymbolBadge(systemName: "pin.fill", tint: palette.danger, palette: palette)
-                        }
-                        if let priority = item.priority {
-                            PriorityBadge(priority: priority, palette: palette)
-                        }
-                    }
+                    Text(metadataLine)
+                        .font(OneType.caption)
+                        .foregroundStyle(palette.subtext)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer(minLength: 8)
@@ -2915,14 +3184,43 @@ private struct TodayItemCard<Destination: View>: View {
                     NavigationLink {
                         destination
                     } label: {
-                        Image(systemName: "chevron.right.circle.fill")
-                            .font(.system(size: 20, weight: .semibold))
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(palette.accent)
+                            .frame(width: 28, height: 28)
+                            .background(
+                                RoundedRectangle(cornerRadius: OneTheme.radiusSmall, style: .continuous)
+                                    .fill(palette.surfaceMuted)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: OneTheme.radiusSmall, style: .continuous)
+                                    .stroke(palette.border, lineWidth: 1)
+                            )
                     }
-                    .buttonStyle(.plain)
+                    .onePressable(scale: 0.96)
                 }
             }
         }
+        .overlay(
+            RoundedRectangle(cornerRadius: OneTheme.radiusLarge, style: .continuous)
+                .fill(
+                    isHighlighted
+                    ? (item.completed ? palette.success.opacity(palette.isDark ? 0.16 : 0.1) : palette.accentSoft)
+                    : Color.clear
+                )
+        )
+        .overlay(alignment: .leading) {
+            RoundedRectangle(cornerRadius: OneTheme.radiusSmall, style: .continuous)
+                .fill(item.completed ? palette.success : emphasisColor)
+                .frame(width: 4)
+                .padding(.vertical, 12)
+                .opacity(item.completed || priorityTier == .high || priorityTier == .urgent || isOverdue ? 1 : 0.2)
+        }
+        .scaleEffect(isHighlighted && !reduceMotion ? 0.992 : 1)
+        .animation(
+            OneMotion.animation(item.completed ? .stateChange : .dismiss, reduceMotion: reduceMotion),
+            value: isHighlighted
+        )
     }
 }
 
@@ -2969,12 +3267,12 @@ private struct SymbolBadge: View {
 }
 
 private struct PriorityBadge: View {
-    let priority: Int
+    let tier: PriorityTier
     let palette: OneTheme.Palette
 
     var body: some View {
         Circle()
-            .fill(priorityIndicatorColor(for: priority))
+            .fill(priorityTierColor(for: tier, palette: palette))
             .frame(width: 24, height: 24)
             .overlay(
                 Circle()
@@ -2982,9 +3280,9 @@ private struct PriorityBadge: View {
             )
             .overlay(
                 Circle()
-                    .stroke(priorityIndicatorColor(for: priority).opacity(0.35), lineWidth: 6)
+                    .stroke(priorityTierColor(for: tier, palette: palette).opacity(0.35), lineWidth: 6)
             )
-            .accessibilityLabel("Priority \(priority)")
+            .accessibilityLabel("\(tier.title) priority")
     }
 }
 
@@ -2997,13 +3295,26 @@ private struct QuickNoteRow: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Text(note.createdAt.map { OneDate.timeString(from: $0) } ?? note.periodStart)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(OneType.caption)
                     .foregroundStyle(palette.subtext)
                 Spacer()
-                OneChip(
-                    palette: palette,
-                    title: "\(note.sentiment.emoji) \(note.sentiment.title)",
-                    kind: note.sentiment.chipKind
+                HStack(spacing: 6) {
+                    Image(systemName: note.sentiment.symbolName)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(note.sentiment.tint(in: palette))
+                    Text(note.sentiment.title)
+                        .font(OneType.caption)
+                        .foregroundStyle(palette.text)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(palette.surface)
+                )
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(palette.border, lineWidth: 1)
                 )
                 Button(action: onDelete) {
                     Image(systemName: "trash")
@@ -3019,14 +3330,14 @@ private struct QuickNoteRow: View {
                                 .stroke(palette.border, lineWidth: 1)
                         )
                 }
-                .buttonStyle(.plain)
+                .onePressable(scale: 0.92)
             }
             Text(note.content)
-                .font(.system(size: 14, weight: .medium))
+                .font(OneType.body)
                 .foregroundStyle(palette.text)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(12)
+        .padding(14)
         .background(
             RoundedRectangle(cornerRadius: OneTheme.radiusMedium, style: .continuous)
                 .fill(palette.surfaceMuted)
@@ -3041,30 +3352,43 @@ private struct QuickNoteRow: View {
 private struct SentimentPickerRow: View {
     let palette: OneTheme.Palette
     @Binding var selectedSentiment: ReflectionSentiment?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Sentiment")
-                .font(.system(size: 12, weight: .semibold))
+            Text("Mood")
+                .font(OneType.label)
                 .foregroundStyle(palette.subtext)
             FlowLayout(spacing: 8) {
                 ForEach(ReflectionSentiment.allCases, id: \.self) { sentiment in
                     Button {
+                        OneHaptics.shared.trigger(.selectionChanged)
                         selectedSentiment = sentiment
                     } label: {
-                        Text(sentiment.emoji)
-                            .font(.system(size: 26))
-                            .frame(width: 56, height: 56)
-                        .background(
-                            RoundedRectangle(cornerRadius: OneTheme.radiusSmall, style: .continuous)
-                                .fill(selectedSentiment == sentiment ? palette.accent.opacity(0.18) : palette.surfaceMuted)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: OneTheme.radiusSmall, style: .continuous)
-                                .stroke(selectedSentiment == sentiment ? palette.accent : palette.border, lineWidth: 1)
-                        )
+                        VStack(spacing: 6) {
+                            Image(systemName: sentiment.symbolName)
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(selectedSentiment == sentiment ? sentiment.tint(in: palette) : palette.subtext)
+                            Text(sentiment.title)
+                                .font(OneType.caption)
+                                .foregroundStyle(palette.text)
+                        }
+                            .frame(width: 82, height: 64)
+                            .scaleEffect(selectedSentiment == sentiment && !reduceMotion ? 1.04 : 1)
+                            .background(
+                                RoundedRectangle(cornerRadius: OneTheme.radiusSmall, style: .continuous)
+                                    .fill(selectedSentiment == sentiment ? palette.accentSoft : palette.surfaceMuted)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: OneTheme.radiusSmall, style: .continuous)
+                                    .stroke(selectedSentiment == sentiment ? palette.accent : palette.border, lineWidth: 1)
+                            )
                     }
-                    .buttonStyle(.plain)
+                    .onePressable(scale: 0.94, opacity: 0.9)
+                    .animation(
+                        OneMotion.animation(.stateChange, reduceMotion: reduceMotion),
+                        value: selectedSentiment == sentiment
+                    )
                     .accessibilityLabel(sentiment.title)
                 }
             }
@@ -3089,7 +3413,7 @@ private struct CompactTodayPreviewRow: View {
                 Text(item.title)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(palette.text)
-                Text(item.subtitle ?? (item.itemType == .habit ? "Scheduled habit" : "Todo"))
+                Text(item.subtitle ?? (item.itemType == .habit ? "Scheduled habit" : "Task"))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(palette.subtext)
             }
@@ -3187,18 +3511,6 @@ private struct HabitCategorySheetView: View {
     var body: some View {
         NavigationStack {
             OneScrollScreen(palette: palette) {
-                OneHeroHeader(
-                    palette: palette,
-                    title: categoryName,
-                    subtitle: "\(activeHabits.count) active habit\(activeHabits.count == 1 ? "" : "s")"
-                ) {
-                    Button("Done") {
-                        onDismiss()
-                    }
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(palette.accent)
-                }
-
                 OneSurfaceCard(palette: palette) {
                     HStack(spacing: 12) {
                         Circle()
@@ -3258,7 +3570,16 @@ private struct HabitCategorySheetView: View {
                     }
                 }
             }
-            .oneNavigationBarHidden()
+            .navigationTitle(categoryName)
+            .oneNavigationBarDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .oneNavigationTrailing) {
+                    Button("Done") {
+                        OneHaptics.shared.trigger(.sheetDismissed)
+                        onDismiss()
+                    }
+                }
+            }
         }
     }
 }
@@ -3307,7 +3628,7 @@ private struct ActiveHabitHomeRow: View {
 
             VStack(spacing: 8) {
                 EmojiBadge(symbol: categoryIcon, palette: palette, accessibilityLabel: categoryName)
-                PriorityBadge(priority: habit.priorityWeight, palette: palette)
+                PriorityBadge(tier: habit.priorityTier, palette: palette)
             }
         }
         .padding(10)
@@ -3334,18 +3655,18 @@ private extension ReflectionSentiment {
         }
     }
 
-    var emoji: String {
+    var symbolName: String {
         switch self {
         case .great:
-            return "😄"
+            return "sun.max.fill"
         case .focused:
-            return "🎯"
+            return "scope"
         case .okay:
-            return "🙂"
+            return "circle.fill"
         case .tired:
-            return "😴"
+            return "moon.zzz.fill"
         case .stressed:
-            return "😣"
+            return "exclamationmark.circle.fill"
         }
     }
 
@@ -3363,6 +3684,21 @@ private extension ReflectionSentiment {
             return .danger
         }
     }
+
+    func tint(in palette: OneTheme.Palette) -> Color {
+        switch self {
+        case .great:
+            return palette.success
+        case .focused:
+            return palette.accent
+        case .okay:
+            return palette.subtext
+        case .tired:
+            return palette.warning
+        case .stressed:
+            return palette.danger
+        }
+    }
 }
 
 private struct SummaryMetricTile: View {
@@ -3373,10 +3709,10 @@ private struct SummaryMetricTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 11, weight: .semibold))
+                .font(OneType.caption)
                 .foregroundStyle(palette.subtext)
             Text(value)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .font(OneType.title)
                 .foregroundStyle(palette.text)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -3433,92 +3769,6 @@ private struct QuickActionTile: View {
     }
 }
 
-private struct HomeQuickActionsFAB: View {
-    let palette: OneTheme.Palette
-    @Binding var isExpanded: Bool
-    let onFocusToday: () -> Void
-    let onAddHabit: () -> Void
-    let onAddTodo: () -> Void
-
-    var body: some View {
-        VStack(alignment: .trailing, spacing: 10) {
-            if isExpanded {
-                FloatingQuickActionButton(
-                    palette: palette,
-                    icon: "bolt.fill",
-                    title: "Focus Today",
-                    action: onFocusToday
-                )
-                FloatingQuickActionButton(
-                    palette: palette,
-                    icon: "repeat",
-                    title: "Add Habit",
-                    action: onAddHabit
-                )
-                FloatingQuickActionButton(
-                    palette: palette,
-                    icon: "checklist",
-                    title: "Add Todo",
-                    action: onAddTodo
-                )
-            }
-
-            Button {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
-                    isExpanded.toggle()
-                }
-            } label: {
-                ZStack {
-                    Circle()
-                        .fill(palette.accent)
-                        .frame(width: 58, height: 58)
-                    Image(systemName: isExpanded ? "xmark" : "plus")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(Color.white)
-                }
-                .shadow(color: palette.shadowColor.opacity(0.24), radius: 16, y: 8)
-            }
-            .buttonStyle(.plain)
-        }
-    }
-}
-
-private struct FloatingQuickActionButton: View {
-    let palette: OneTheme.Palette
-    let icon: String
-    let title: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Text(title)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(palette.text)
-                Circle()
-                    .fill(palette.surfaceStrong)
-                    .frame(width: 36, height: 36)
-                    .overlay(
-                        Image(systemName: icon)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(palette.accent)
-                    )
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(palette.surface)
-            )
-            .overlay(
-                Capsule(style: .continuous)
-                    .stroke(palette.border, lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 private struct CoachVerseBlock: View {
     let palette: OneTheme.Palette
     let card: CoachCard
@@ -3531,23 +3781,28 @@ private struct CoachVerseBlock: View {
         if let verse = resolvedVerse,
            let verseRef = card.verseRef,
            !verseRef.isEmpty {
-            Text("\(verseRef) \(verse)")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(palette.text)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: OneTheme.radiusMedium, style: .continuous)
-                        .fill(palette.accentSoft)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: OneTheme.radiusMedium, style: .continuous)
-                        .stroke(palette.border, lineWidth: 1)
-                )
+            VStack(alignment: .leading, spacing: 6) {
+                Text(verseRef)
+                    .font(OneType.caption)
+                    .foregroundStyle(palette.subtext)
+                Text(verse)
+                    .font(OneType.body)
+                    .foregroundStyle(palette.text)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: OneTheme.radiusMedium, style: .continuous)
+                    .fill(palette.surfaceMuted)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: OneTheme.radiusMedium, style: .continuous)
+                    .stroke(palette.border, lineWidth: 1)
+            )
         } else if let verse = card.verseText,
                   !verse.isEmpty {
             Text(verse)
-                .font(.system(size: 13, weight: .semibold))
+                .font(OneType.body)
                 .foregroundStyle(palette.text)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -3562,10 +3817,10 @@ private struct EmptyStateCard: View {
     var body: some View {
         OneSurfaceCard(palette: palette) {
             Text(title)
-                .font(.system(size: 16, weight: .semibold))
+                .font(OneType.title)
                 .foregroundStyle(palette.text)
             Text(message)
-                .font(.system(size: 13, weight: .medium))
+                .font(OneType.secondary)
                 .foregroundStyle(palette.subtext)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -3588,11 +3843,40 @@ private struct InlineStatusCard: View {
                 Image(systemName: kind == .danger ? "exclamationmark.triangle.fill" : "info.circle.fill")
                     .foregroundStyle(kind == .danger ? palette.danger : palette.accent)
                 Text(message)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(OneType.secondary)
                     .foregroundStyle(kind == .danger ? palette.danger : palette.text)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+}
+
+private enum OneTimeValueFormatter {
+    private static let storageFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .autoupdatingCurrent
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter
+    }()
+
+    private static let fallbackFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .autoupdatingCurrent
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+
+    static func string(from date: Date) -> String {
+        storageFormatter.string(from: date)
+    }
+
+    static func date(from raw: String?) -> Date? {
+        guard let raw, !raw.isEmpty else {
+            return nil
+        }
+        return storageFormatter.date(from: raw) ?? fallbackFormatter.date(from: raw)
     }
 }
 
@@ -3612,6 +3896,34 @@ private struct OneField: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(palette.subtext)
             TextField(placeholder, text: $text)
+                .onePlainTextInputBehavior()
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: OneTheme.radiusMedium, style: .continuous)
+                        .fill(palette.surfaceMuted)
+                )
+                .foregroundStyle(palette.text)
+        }
+    }
+}
+
+private struct OneSecureField: View {
+    let title: String
+    @Binding var text: String
+    let placeholder: String
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var palette: OneTheme.Palette {
+        OneTheme.palette(for: colorScheme)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(palette.subtext)
+            SecureField(placeholder, text: $text)
                 .onePlainTextInputBehavior()
                 .padding(.horizontal, 12)
                 .padding(.vertical, 12)
@@ -3697,6 +4009,9 @@ private struct PickerCard: View {
                     .fill(palette.surfaceMuted)
             )
         }
+        .onChange(of: selection) { _, _ in
+            OneHaptics.shared.trigger(.selectionChanged)
+        }
     }
 }
 
@@ -3725,6 +4040,7 @@ private struct SliderCard: View {
             RoundedRectangle(cornerRadius: OneTheme.radiusMedium, style: .continuous)
                 .fill(palette.surfaceMuted)
         )
+        .animation(OneMotion.animation(.stateChange), value: value)
     }
 }
 
@@ -3733,6 +4049,7 @@ private struct ToggleCard: View {
     let title: String
     let subtitle: String
     @Binding var isOn: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 12) {
@@ -3753,8 +4070,16 @@ private struct ToggleCard: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: OneTheme.radiusMedium, style: .continuous)
-                .fill(palette.surfaceMuted)
+                .fill(isOn ? palette.accentSoft : palette.surfaceMuted)
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: OneTheme.radiusMedium, style: .continuous)
+                .stroke(isOn ? palette.accent.opacity(0.55) : palette.border, lineWidth: 1)
+        )
+        .animation(OneMotion.animation(.stateChange, reduceMotion: reduceMotion), value: isOn)
+        .onChange(of: isOn) { _, _ in
+            OneHaptics.shared.trigger(.selectionChanged)
+        }
     }
 }
 
@@ -3762,13 +4087,14 @@ private struct DatePickerCard: View {
     let palette: OneTheme.Palette
     let title: String
     @Binding var selection: Date
+    var displayedComponents: DatePickerComponents = [.date]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(palette.subtext)
-            DatePicker("", selection: $selection)
+            DatePicker("", selection: $selection, displayedComponents: displayedComponents)
                 .labelsHidden()
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 4)
@@ -3785,6 +4111,7 @@ private struct DatePickerCard: View {
 private struct StatusPickerCard: View {
     let palette: OneTheme.Palette
     @Binding var selection: TodoStatus
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -3803,6 +4130,10 @@ private struct StatusPickerCard: View {
             RoundedRectangle(cornerRadius: OneTheme.radiusMedium, style: .continuous)
                 .fill(palette.surfaceMuted)
         )
+        .animation(OneMotion.animation(.stateChange, reduceMotion: reduceMotion), value: selection)
+        .onChange(of: selection) { _, _ in
+            OneHaptics.shared.trigger(.selectionChanged)
+        }
     }
 }
 
@@ -3810,6 +4141,7 @@ private struct RecurrenceBuilderCard: View {
     let palette: OneTheme.Palette
     @Binding var recurrence: HabitRecurrenceRule
     @State private var yearlyDraftDate = Date()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
 
@@ -3839,10 +4171,14 @@ private struct RecurrenceBuilderCard: View {
                 default:
                     break
                 }
-                recurrence = updated
+                OneHaptics.shared.trigger(.selectionChanged)
+                withAnimation(OneMotion.animation(.stateChange, reduceMotion: reduceMotion)) {
+                    recurrence = updated
+                }
             }
 
-            switch recurrence.frequency {
+            Group {
+                switch recurrence.frequency {
             case .daily:
                 Text("Daily habits materialize every day.")
                     .font(.system(size: 13, weight: .medium))
@@ -3861,12 +4197,15 @@ private struct RecurrenceBuilderCard: View {
                             } else {
                                 updated.weekdays.append(weekday)
                             }
-                            recurrence = HabitRecurrenceRule(
-                                frequency: updated.frequency,
-                                weekdays: updated.weekdays,
-                                monthDays: updated.monthDays,
-                                yearlyDates: updated.yearlyDates
-                            )
+                            OneHaptics.shared.trigger(.selectionChanged)
+                            withAnimation(OneMotion.animation(.stateChange, reduceMotion: reduceMotion)) {
+                                recurrence = HabitRecurrenceRule(
+                                    frequency: updated.frequency,
+                                    weekdays: updated.weekdays,
+                                    monthDays: updated.monthDays,
+                                    yearlyDates: updated.yearlyDates
+                                )
+                            }
                         }
                     }
                 }
@@ -3884,12 +4223,15 @@ private struct RecurrenceBuilderCard: View {
                             } else {
                                 updated.monthDays.append(day)
                             }
-                            recurrence = HabitRecurrenceRule(
-                                frequency: updated.frequency,
-                                weekdays: updated.weekdays,
-                                monthDays: updated.monthDays,
-                                yearlyDates: updated.yearlyDates
-                            )
+                            OneHaptics.shared.trigger(.selectionChanged)
+                            withAnimation(OneMotion.animation(.stateChange, reduceMotion: reduceMotion)) {
+                                recurrence = HabitRecurrenceRule(
+                                    frequency: updated.frequency,
+                                    weekdays: updated.weekdays,
+                                    monthDays: updated.monthDays,
+                                    yearlyDates: updated.yearlyDates
+                                )
+                            }
                         }
                     }
                 }
@@ -3906,12 +4248,15 @@ private struct RecurrenceBuilderCard: View {
                                     RemovableChoiceChip(palette: palette, title: date.title) {
                                         var updated = recurrence
                                         updated.yearlyDates.removeAll { $0 == date }
-                                        recurrence = HabitRecurrenceRule(
-                                            frequency: updated.frequency,
-                                            weekdays: updated.weekdays,
-                                            monthDays: updated.monthDays,
-                                            yearlyDates: updated.yearlyDates
-                                        )
+                                        OneHaptics.shared.trigger(.destructiveConfirmed)
+                                        withAnimation(OneMotion.animation(.dismiss, reduceMotion: reduceMotion)) {
+                                            recurrence = HabitRecurrenceRule(
+                                                frequency: updated.frequency,
+                                                weekdays: updated.weekdays,
+                                                monthDays: updated.monthDays,
+                                                yearlyDates: updated.yearlyDates
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -3929,19 +4274,29 @@ private struct RecurrenceBuilderCard: View {
                                 return
                             }
                             var updated = recurrence
-                            updated.yearlyDates.append(HabitRecurrenceYearlyDate(month: month, day: day))
-                            recurrence = HabitRecurrenceRule(
-                                frequency: updated.frequency,
-                                weekdays: updated.weekdays,
-                                monthDays: updated.monthDays,
-                                yearlyDates: updated.yearlyDates
-                            )
+                            let nextDate = HabitRecurrenceYearlyDate(month: month, day: day)
+                            guard !updated.yearlyDates.contains(nextDate) else {
+                                return
+                            }
+                            updated.yearlyDates.append(nextDate)
+                            OneHaptics.shared.trigger(.selectionChanged)
+                            withAnimation(OneMotion.animation(.stateChange, reduceMotion: reduceMotion)) {
+                                recurrence = HabitRecurrenceRule(
+                                    frequency: updated.frequency,
+                                    weekdays: updated.weekdays,
+                                    monthDays: updated.monthDays,
+                                    yearlyDates: updated.yearlyDates
+                                )
+                            }
                         }
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(palette.accent)
+                        .onePressable(scale: 0.97)
                     }
                 }
             }
+            }
+            .transition(.move(edge: .top).combined(with: .opacity))
 
             Text(recurrence.summary)
                 .font(.system(size: 12, weight: .semibold))
@@ -3958,6 +4313,7 @@ private struct RecurrenceBuilderCard: View {
             RoundedRectangle(cornerRadius: OneTheme.radiusMedium, style: .continuous)
                 .fill(palette.surfaceMuted)
         )
+        .animation(OneMotion.animation(.stateChange, reduceMotion: reduceMotion), value: recurrence.frequency)
     }
 }
 
@@ -3983,7 +4339,7 @@ private struct RecurrenceChoiceChip: View {
                         .stroke(isSelected ? palette.accent : palette.border, lineWidth: 1)
                 )
         }
-        .buttonStyle(.plain)
+        .onePressable(scale: 0.96)
     }
 }
 
@@ -4012,7 +4368,7 @@ private struct RemovableChoiceChip: View {
                     .stroke(palette.border, lineWidth: 1)
             )
         }
-        .buttonStyle(.plain)
+        .onePressable(scale: 0.96)
     }
 }
 
@@ -4046,7 +4402,7 @@ private struct AnalyticsMonthContributionSection: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(section.label)
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .font(OneType.body)
                     .foregroundStyle(palette.text)
                 Spacer()
                 Text("\(section.completedItems)/\(section.expectedItems)")
@@ -4084,7 +4440,7 @@ private struct AnalyticsMonthContributionSection: View {
                                     .foregroundStyle(palette.text.opacity(day.hasSummary ? 0.78 : 0.45))
                             }
                     }
-                    .buttonStyle(.plain)
+                    .onePressable(scale: 0.96, opacity: 0.92)
                 }
             }
         }
@@ -4127,7 +4483,7 @@ private struct AnalyticsContributionGrid: View {
                                 .padding(2)
                         }
                 }
-                .buttonStyle(.plain)
+                .onePressable(scale: 0.96, opacity: 0.92)
             }
         }
     }
@@ -4147,7 +4503,7 @@ private struct AnalyticsSentimentOverviewView: View {
                     ForEach(overview.distribution) { item in
                         OneChip(
                             palette: palette,
-                            title: "\(item.sentiment.emoji) \(item.sentiment.title) \(item.count)",
+                            title: "\(item.sentiment.title) \(item.count)",
                             kind: item.sentiment.chipKind
                         )
                     }
@@ -4181,12 +4537,13 @@ private struct AnalyticsSentimentOverviewView: View {
     @ViewBuilder
     private func sentimentPoint(_ point: AnalyticsSentimentTrendPoint) -> some View {
         let content = VStack(spacing: 6) {
-            Text(point.sentiment?.emoji ?? "·")
-                .font(.system(size: 18, weight: .semibold))
+            Image(systemName: point.sentiment?.symbolName ?? "circle")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(point.sentiment?.tint(in: palette) ?? palette.subtext)
                 .frame(width: 28, height: 28)
                 .background(
                     Circle()
-                        .fill(point.sentiment == nil ? palette.surfaceMuted : palette.accentSoft)
+                        .fill(point.sentiment == nil ? palette.surfaceMuted : palette.surface)
                 )
                 .overlay(
                     Circle()
@@ -4207,7 +4564,7 @@ private struct AnalyticsSentimentOverviewView: View {
             } label: {
                 content
             }
-            .buttonStyle(.plain)
+            .onePressable(scale: 0.96, opacity: 0.92)
         } else {
             content
         }
@@ -4311,15 +4668,17 @@ private func actionQueueCategoryIcon(name: String, storedIcon: String?) -> Strin
     }
 }
 
-private func priorityIndicatorColor(for priority: Int) -> Color {
-    let normalized = min(max(Double(priority) / 100, 0), 1)
-    let amber = (red: 0.93, green: 0.69, blue: 0.29)
-    let coral = (red: 0.93, green: 0.42, blue: 0.33)
-    return Color(
-        red: amber.red + ((coral.red - amber.red) * normalized),
-        green: amber.green + ((coral.green - amber.green) * normalized),
-        blue: amber.blue + ((coral.blue - amber.blue) * normalized)
-    )
+private func priorityTierColor(for tier: PriorityTier, palette: OneTheme.Palette) -> Color {
+    switch tier {
+    case .low:
+        return palette.subtext
+    case .standard:
+        return palette.accent
+    case .high:
+        return palette.highlight
+    case .urgent:
+        return palette.danger
+    }
 }
 
 private func contributionFill(for rate: Double, palette: OneTheme.Palette) -> Color {
@@ -4515,11 +4874,42 @@ enum OneDate {
     }
 }
 
+private enum OneNavigationBarDisplayMode {
+    case automatic
+    case inline
+    case large
+}
+
+private extension ToolbarItemPlacement {
+    static var oneNavigationLeading: ToolbarItemPlacement {
+        #if os(iOS)
+        .navigationBarLeading
+        #else
+        .automatic
+        #endif
+    }
+
+    static var oneNavigationTrailing: ToolbarItemPlacement {
+        #if os(iOS)
+        .navigationBarTrailing
+        #else
+        .primaryAction
+        #endif
+    }
+}
+
 private extension View {
     @ViewBuilder
-    func oneNavigationBarHidden() -> some View {
+    func oneNavigationBarDisplayMode(_ displayMode: OneNavigationBarDisplayMode) -> some View {
         #if os(iOS)
-        self.toolbar(.hidden, for: .navigationBar)
+        switch displayMode {
+        case .automatic:
+            self.navigationBarTitleDisplayMode(.automatic)
+        case .inline:
+            self.navigationBarTitleDisplayMode(.inline)
+        case .large:
+            self.navigationBarTitleDisplayMode(.large)
+        }
         #else
         self
         #endif
@@ -4528,7 +4918,7 @@ private extension View {
     @ViewBuilder
     func oneInlineNavigationBarTitle() -> some View {
         #if os(iOS)
-        self.navigationBarTitleDisplayMode(.inline)
+        self.oneNavigationBarDisplayMode(.inline)
         #else
         self
         #endif

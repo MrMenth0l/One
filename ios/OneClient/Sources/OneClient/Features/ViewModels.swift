@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import SwiftUI
 
 private func userFacingError(_ error: Error) -> String {
     if let apiError = error as? APIError {
@@ -153,9 +154,13 @@ public final class TasksViewModel: ObservableObject {
 
     public func loadCategories() async {
         do {
-            categories = try await repository.loadCategories()
+            let loadedCategories = try await repository.loadCategories()
+            withAnimation(OneMotion.animation(.calmRefresh)) {
+                categories = loadedCategories
+            }
             errorMessage = nil
         } catch {
+            OneHaptics.shared.trigger(.saveFailed)
             errorMessage = userFacingError(error)
         }
     }
@@ -164,10 +169,15 @@ public final class TasksViewModel: ObservableObject {
         do {
             async let loadedHabits = repository.loadHabits()
             async let loadedTodos = repository.loadTodos()
-            habits = try await loadedHabits
-            todos = try await loadedTodos
+            let nextHabits = try await loadedHabits
+            let nextTodos = try await loadedTodos
+            withAnimation(OneMotion.animation(.calmRefresh)) {
+                habits = nextHabits
+                todos = nextTodos
+            }
             errorMessage = nil
         } catch {
+            OneHaptics.shared.trigger(.saveFailed)
             errorMessage = userFacingError(error)
         }
     }
@@ -175,11 +185,15 @@ public final class TasksViewModel: ObservableObject {
     public func createHabit(input: HabitCreateInput) async -> Habit? {
         do {
             let created = try await repository.createHabit(input)
-            habits.append(created)
+            withAnimation(OneMotion.animation(.stateChange)) {
+                habits.append(created)
+            }
             await scheduleRefresher.refreshSchedules()
+            OneHaptics.shared.trigger(.saveSucceeded)
             errorMessage = nil
             return created
         } catch {
+            OneHaptics.shared.trigger(.saveFailed)
             errorMessage = userFacingError(error)
             return nil
         }
@@ -188,11 +202,15 @@ public final class TasksViewModel: ObservableObject {
     public func createTodo(input: TodoCreateInput) async -> Todo? {
         do {
             let created = try await repository.createTodo(input)
-            todos.append(created)
+            withAnimation(OneMotion.animation(.stateChange)) {
+                todos.append(created)
+            }
             await scheduleRefresher.refreshSchedules()
+            OneHaptics.shared.trigger(.saveSucceeded)
             errorMessage = nil
             return created
         } catch {
+            OneHaptics.shared.trigger(.saveFailed)
             errorMessage = userFacingError(error)
             return nil
         }
@@ -202,12 +220,16 @@ public final class TasksViewModel: ObservableObject {
         do {
             let updated = try await repository.updateHabit(id: id, input: input, clientUpdatedAt: Date())
             if let index = habits.firstIndex(where: { $0.id == id }) {
-                habits[index] = updated
+                withAnimation(OneMotion.animation(.stateChange)) {
+                    habits[index] = updated
+                }
             }
             await scheduleRefresher.refreshSchedules()
+            OneHaptics.shared.trigger(.saveSucceeded)
             errorMessage = nil
             return updated
         } catch {
+            OneHaptics.shared.trigger(.saveFailed)
             errorMessage = userFacingError(error)
             return nil
         }
@@ -217,12 +239,16 @@ public final class TasksViewModel: ObservableObject {
         do {
             let updated = try await repository.updateTodo(id: id, input: input, clientUpdatedAt: Date())
             if let index = todos.firstIndex(where: { $0.id == id }) {
-                todos[index] = updated
+                withAnimation(OneMotion.animation(.stateChange)) {
+                    todos[index] = updated
+                }
             }
             await scheduleRefresher.refreshSchedules()
+            OneHaptics.shared.trigger(.saveSucceeded)
             errorMessage = nil
             return updated
         } catch {
+            OneHaptics.shared.trigger(.saveFailed)
             errorMessage = userFacingError(error)
             return nil
         }
@@ -231,11 +257,15 @@ public final class TasksViewModel: ObservableObject {
     public func deleteHabit(id: String) async -> Bool {
         do {
             try await repository.deleteHabit(id: id)
-            habits.removeAll { $0.id == id }
+            withAnimation(OneMotion.animation(.dismiss)) {
+                habits.removeAll { $0.id == id }
+            }
             await scheduleRefresher.refreshSchedules()
+            OneHaptics.shared.trigger(.destructiveConfirmed)
             errorMessage = nil
             return true
         } catch {
+            OneHaptics.shared.trigger(.saveFailed)
             errorMessage = userFacingError(error)
             return false
         }
@@ -244,11 +274,15 @@ public final class TasksViewModel: ObservableObject {
     public func deleteTodo(id: String) async -> Bool {
         do {
             try await repository.deleteTodo(id: id)
-            todos.removeAll { $0.id == id }
+            withAnimation(OneMotion.animation(.dismiss)) {
+                todos.removeAll { $0.id == id }
+            }
             await scheduleRefresher.refreshSchedules()
+            OneHaptics.shared.trigger(.destructiveConfirmed)
             errorMessage = nil
             return true
         } catch {
+            OneHaptics.shared.trigger(.saveFailed)
             errorMessage = userFacingError(error)
             return false
         }
@@ -275,6 +309,8 @@ public final class TodayViewModel: ObservableObject {
     @Published public private(set) var completionRatio: Double = 0
     @Published public private(set) var isLoading = false
     @Published public private(set) var errorMessage: String?
+    @Published public private(set) var highlightedItemID: String?
+    @Published public private(set) var milestoneCount = 0
 
     private let repository: TodayRepository
 
@@ -287,11 +323,13 @@ public final class TodayViewModel: ObservableObject {
         defer { isLoading = false }
         do {
             let response = try await repository.loadToday(date: date)
-            dateLocal = response.dateLocal
-            items = response.items
-            completedCount = response.completedCount
-            totalCount = response.totalCount
-            completionRatio = response.completionRatio
+            withAnimation(OneMotion.animation(.calmRefresh)) {
+                dateLocal = response.dateLocal
+                items = response.items
+                completedCount = response.completedCount
+                totalCount = response.totalCount
+                completionRatio = response.completionRatio
+            }
             errorMessage = nil
         } catch {
             errorMessage = userFacingError(error)
@@ -307,12 +345,31 @@ public final class TodayViewModel: ObservableObject {
                 dateLocal: dateLocal,
                 state: next
             )
-            self.items = response.items
-            self.completedCount = response.completedCount
-            self.totalCount = response.totalCount
-            self.completionRatio = response.completionRatio
+            withAnimation(OneMotion.animation(next == .completed ? .stateChange : .dismiss)) {
+                self.items = response.items
+                self.completedCount = response.completedCount
+                self.totalCount = response.totalCount
+                self.completionRatio = response.completionRatio
+                self.highlightedItemID = item.id
+            }
+
+            let completedDay = next == .completed && response.totalCount > 0 && response.completedCount == response.totalCount
+            OneHaptics.shared.trigger(completedDay ? .milestoneReached : .completionCommitted)
+            if completedDay {
+                milestoneCount += 1
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(0.85))
+                guard highlightedItemID == item.id else {
+                    return
+                }
+                withAnimation(OneMotion.animation(.dismiss)) {
+                    highlightedItemID = nil
+                }
+            }
             errorMessage = nil
         } catch {
+            OneHaptics.shared.trigger(.saveFailed)
             errorMessage = userFacingError(error)
         }
     }
@@ -323,13 +380,34 @@ public final class TodayViewModel: ObservableObject {
         }
         do {
             let response = try await repository.reorder(dateLocal: dateLocal, items: order)
-            self.items = response.items
-            self.completedCount = response.completedCount
-            self.totalCount = response.totalCount
-            self.completionRatio = response.completionRatio
+            withAnimation(OneMotion.animation(.reorder)) {
+                self.items = response.items
+                self.completedCount = response.completedCount
+                self.totalCount = response.totalCount
+                self.completionRatio = response.completionRatio
+            }
+            OneHaptics.shared.trigger(.reorderDrop)
             errorMessage = nil
         } catch {
+            OneHaptics.shared.trigger(.saveFailed)
             errorMessage = userFacingError(error)
+        }
+    }
+
+    public func highlight(itemType: ItemType, itemId: String) {
+        let highlightID = "\(itemType.rawValue):\(itemId)"
+        withAnimation(OneMotion.animation(.stateChange)) {
+            highlightedItemID = highlightID
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.2))
+            guard highlightedItemID == highlightID else {
+                return
+            }
+            withAnimation(OneMotion.animation(.dismiss)) {
+                highlightedItemID = nil
+            }
         }
     }
 }
@@ -346,7 +424,7 @@ public enum AnalyticsActivityFilter: String, CaseIterable, Sendable {
         case .habits:
             return "Habits"
         case .todos:
-            return "Todos"
+            return "Tasks"
         }
     }
 }
@@ -521,6 +599,7 @@ public final class AnalyticsViewModel: ObservableObject {
     @Published public private(set) var selectedMonthWeek: Int?
     @Published public private(set) var sentimentOverview: AnalyticsSentimentOverview?
     @Published public private(set) var errorMessage: String?
+    @Published public private(set) var isTransitioning = false
 
     private let repository: AnalyticsRepository
     private let reflectionsRepository: ReflectionsRepository
@@ -548,17 +627,25 @@ public final class AnalyticsViewModel: ObservableObject {
     }
 
     public func selectActivityFilter(_ filter: AnalyticsActivityFilter) {
-        selectedActivityFilter = filter
-        applyActivityFilter()
+        withAnimation(OneMotion.animation(.stateChange)) {
+            selectedActivityFilter = filter
+            applyActivityFilter()
+        }
+        OneHaptics.shared.trigger(.selectionChanged)
     }
 
     public func selectMonthWeek(_ week: Int) {
-        selectedMonthWeek = week
-        applyActivityFilter()
+        withAnimation(OneMotion.animation(.stateChange)) {
+            selectedMonthWeek = week
+            applyActivityFilter()
+        }
+        OneHaptics.shared.trigger(.selectionChanged)
     }
 
     public func loadWeekly(anchorDate: String, weekStart: Int = 0) async {
         let key = AnalyticsPeriodCacheKey(anchorDate: anchorDate, periodType: .weekly, weekStart: weekStart)
+        isTransitioning = true
+        defer { isTransitioning = false }
         do {
             let rawData: AnalyticsRawPeriodData
             if let cached = rawPeriodCache[key] {
@@ -578,20 +665,25 @@ public final class AnalyticsViewModel: ObservableObject {
             presentationCache = presentationCache.filter { $0.key.periodKey != key }
             weeklyPeriodKey = key
             let weeklyPresentation = presentation(for: rawData, key: key)
-            weeklyDailySummaries = weeklyPresentation.dailySummaries
-            weekly = weeklyPresentation.summary
+            withAnimation(OneMotion.animation(.calmRefresh)) {
+                weeklyDailySummaries = weeklyPresentation.dailySummaries
+                weekly = weeklyPresentation.summary
+            }
             if selectedPeriod == .weekly {
                 currentPeriodKey = key
                 applyPresentation(weeklyPresentation, key: key)
             }
             errorMessage = nil
         } catch {
+            OneHaptics.shared.trigger(.saveFailed)
             errorMessage = userFacingError(error)
         }
     }
 
     public func loadPeriod(anchorDate: String, periodType: PeriodType, weekStart: Int = 0) async {
         let key = AnalyticsPeriodCacheKey(anchorDate: anchorDate, periodType: periodType, weekStart: weekStart)
+        isTransitioning = true
+        defer { isTransitioning = false }
         do {
             selectedPeriod = periodType
             let rawData: AnalyticsRawPeriodData
@@ -618,8 +710,10 @@ public final class AnalyticsViewModel: ObservableObject {
                 weeklyDailySummaries = currentPresentation.dailySummaries
                 weekly = currentPresentation.summary
             }
+            OneHaptics.shared.trigger(.periodSwitched)
             errorMessage = nil
         } catch {
+            OneHaptics.shared.trigger(.saveFailed)
             errorMessage = userFacingError(error)
         }
     }
@@ -659,40 +753,42 @@ public final class AnalyticsViewModel: ObservableObject {
     }
 
     private func applyPresentation(_ presentation: AnalyticsPresentation, key: AnalyticsPeriodCacheKey) {
-        summary = presentation.summary
-        chartSeries = presentation.chartSeries
+        withAnimation(OneMotion.animation(.stateChange)) {
+            summary = presentation.summary
+            chartSeries = presentation.chartSeries
 
-        switch key.periodType {
-        case .monthly:
-            monthWeekBuckets = presentation.monthWeekBuckets
-            let defaultWeek = monthSegment(for: key.anchorDate)
-            if let selectedMonthWeek,
-               monthWeekBuckets.contains(where: { $0.week == selectedMonthWeek }) {
-                self.selectedMonthWeek = selectedMonthWeek
-            } else {
-                self.selectedMonthWeek = monthWeekBuckets.first(where: { $0.week == defaultWeek })?.week ?? monthWeekBuckets.first?.week
+            switch key.periodType {
+            case .monthly:
+                monthWeekBuckets = presentation.monthWeekBuckets
+                let defaultWeek = monthSegment(for: key.anchorDate)
+                if let selectedMonthWeek,
+                   monthWeekBuckets.contains(where: { $0.week == selectedMonthWeek }) {
+                    self.selectedMonthWeek = selectedMonthWeek
+                } else {
+                    self.selectedMonthWeek = monthWeekBuckets.first(where: { $0.week == defaultWeek })?.week ?? monthWeekBuckets.first?.week
+                }
+                dailySummaries = monthlyDetailSummaries(from: presentation.dailySummaries)
+                contributionSections = []
+                sentimentOverview = buildSentimentOverview(key: key)
+            case .yearly:
+                monthWeekBuckets = []
+                selectedMonthWeek = nil
+                dailySummaries = presentation.dailySummaries
+                contributionSections = presentation.contributionSections
+                sentimentOverview = buildSentimentOverview(key: key)
+            case .weekly:
+                monthWeekBuckets = []
+                selectedMonthWeek = nil
+                dailySummaries = presentation.dailySummaries
+                contributionSections = []
+                sentimentOverview = buildSentimentOverview(key: key)
+            case .daily:
+                monthWeekBuckets = []
+                selectedMonthWeek = nil
+                dailySummaries = presentation.dailySummaries
+                contributionSections = []
+                sentimentOverview = buildSentimentOverview(key: key)
             }
-            dailySummaries = monthlyDetailSummaries(from: presentation.dailySummaries)
-            contributionSections = []
-            sentimentOverview = buildSentimentOverview(key: key)
-        case .yearly:
-            monthWeekBuckets = []
-            selectedMonthWeek = nil
-            dailySummaries = presentation.dailySummaries
-            contributionSections = presentation.contributionSections
-            sentimentOverview = buildSentimentOverview(key: key)
-        case .weekly:
-            monthWeekBuckets = []
-            selectedMonthWeek = nil
-            dailySummaries = presentation.dailySummaries
-            contributionSections = []
-            sentimentOverview = buildSentimentOverview(key: key)
-        case .daily:
-            monthWeekBuckets = []
-            selectedMonthWeek = nil
-            dailySummaries = presentation.dailySummaries
-            contributionSections = []
-            sentimentOverview = buildSentimentOverview(key: key)
         }
     }
 
@@ -991,7 +1087,10 @@ public final class CoachViewModel: ObservableObject {
 
     public func load() async {
         do {
-            cards = try await repository.loadCards()
+            let loadedCards = try await repository.loadCards()
+            withAnimation(OneMotion.animation(.calmRefresh)) {
+                cards = loadedCards
+            }
             errorMessage = nil
         } catch {
             errorMessage = userFacingError(error)
@@ -1012,9 +1111,13 @@ public final class ReflectionsViewModel: ObservableObject {
 
     public func load(periodType: PeriodType? = nil) async {
         do {
-            notes = try await repository.list(periodType: periodType)
+            let loadedNotes = try await repository.list(periodType: periodType)
+            withAnimation(OneMotion.animation(.calmRefresh)) {
+                notes = loadedNotes
+            }
             errorMessage = nil
         } catch {
+            OneHaptics.shared.trigger(.saveFailed)
             errorMessage = userFacingError(error)
         }
     }
@@ -1022,14 +1125,18 @@ public final class ReflectionsViewModel: ObservableObject {
     public func upsert(input: ReflectionWriteInput) async -> ReflectionNote? {
         do {
             let note = try await repository.upsert(input: input)
-            if let index = notes.firstIndex(where: { $0.id == note.id }) {
-                notes[index] = note
-            } else {
-                notes.insert(note, at: 0)
+            withAnimation(OneMotion.animation(.stateChange)) {
+                if let index = notes.firstIndex(where: { $0.id == note.id }) {
+                    notes[index] = note
+                } else {
+                    notes.insert(note, at: 0)
+                }
             }
+            OneHaptics.shared.trigger(.saveSucceeded)
             errorMessage = nil
             return note
         } catch {
+            OneHaptics.shared.trigger(.saveFailed)
             errorMessage = userFacingError(error)
             return nil
         }
@@ -1038,10 +1145,14 @@ public final class ReflectionsViewModel: ObservableObject {
     public func delete(id: String) async -> Bool {
         do {
             try await repository.delete(id: id)
-            notes.removeAll { $0.id == id }
+            withAnimation(OneMotion.animation(.dismiss)) {
+                notes.removeAll { $0.id == id }
+            }
+            OneHaptics.shared.trigger(.destructiveConfirmed)
             errorMessage = nil
             return true
         } catch {
+            OneHaptics.shared.trigger(.saveFailed)
             errorMessage = userFacingError(error)
             return false
         }
@@ -1116,7 +1227,9 @@ public final class NotesViewModel: ObservableObject {
         self.anchorDate = anchorDate
         selectedDateLocal = anchorDate
         selectedYearMonth = OneDate.monthBucket(from: anchorDate)
-        refreshDerivedState()
+        withAnimation(OneMotion.animation(.calmRefresh)) {
+            refreshDerivedState()
+        }
     }
 
     public func refreshFromStore(anchorDate: String? = nil, weekStart: Int? = nil) async {
@@ -1129,26 +1242,35 @@ public final class NotesViewModel: ObservableObject {
     }
 
     public func selectPeriod(_ period: PeriodType) {
-        selectedPeriod = period
-        selectedYearMonth = OneDate.monthBucket(from: selectedDateLocal)
-        refreshDerivedState()
+        withAnimation(OneMotion.animation(.stateChange)) {
+            selectedPeriod = period
+            selectedYearMonth = OneDate.monthBucket(from: selectedDateLocal)
+            refreshDerivedState()
+        }
+        OneHaptics.shared.trigger(.selectionChanged)
     }
 
     public func selectDay(_ dateLocal: String) {
-        anchorDate = dateLocal
-        selectedDateLocal = dateLocal
-        selectedYearMonth = OneDate.monthBucket(from: dateLocal)
-        refreshDerivedState()
+        withAnimation(OneMotion.animation(.stateChange)) {
+            anchorDate = dateLocal
+            selectedDateLocal = dateLocal
+            selectedYearMonth = OneDate.monthBucket(from: dateLocal)
+            refreshDerivedState()
+        }
+        OneHaptics.shared.trigger(.selectionChanged)
     }
 
     public func selectMonth(_ month: Int) {
         let day = Int(OneDate.dayNumber(from: selectedDateLocal)) ?? 1
         let clampedDay = min(day, OneDate.numberOfDays(inMonth: month, year: currentYear))
         let nextDate = String(format: "%04d-%02d-%02d", currentYear, month, clampedDay)
-        anchorDate = nextDate
-        selectedDateLocal = nextDate
-        selectedYearMonth = month
-        refreshDerivedState()
+        withAnimation(OneMotion.animation(.stateChange)) {
+            anchorDate = nextDate
+            selectedDateLocal = nextDate
+            selectedYearMonth = month
+            refreshDerivedState()
+        }
+        OneHaptics.shared.trigger(.selectionChanged)
     }
 
     public func moveSelection(by offset: Int) {
@@ -1163,20 +1285,27 @@ public final class NotesViewModel: ObservableObject {
         case .yearly:
             nextDate = shiftedDate(from: selectedDateLocal, years: offset)
         }
-        anchorDate = nextDate
-        selectedDateLocal = nextDate
-        selectedYearMonth = OneDate.monthBucket(from: nextDate)
-        refreshDerivedState()
+        withAnimation(OneMotion.animation(.stateChange)) {
+            anchorDate = nextDate
+            selectedDateLocal = nextDate
+            selectedYearMonth = OneDate.monthBucket(from: nextDate)
+            refreshDerivedState()
+        }
+        OneHaptics.shared.trigger(.selectionChanged)
     }
 
     public func delete(id: String) async -> Bool {
         do {
             try await repository.delete(id: id)
-            allNotes.removeAll { $0.id == id }
-            refreshDerivedState()
+            withAnimation(OneMotion.animation(.dismiss)) {
+                allNotes.removeAll { $0.id == id }
+                refreshDerivedState()
+            }
+            OneHaptics.shared.trigger(.destructiveConfirmed)
             errorMessage = nil
             return true
         } catch {
+            OneHaptics.shared.trigger(.saveFailed)
             errorMessage = userFacingError(error)
             return false
         }
@@ -1404,8 +1533,12 @@ public final class ProfileViewModel: ObservableObject, NotificationScheduleRefre
         do {
             async let loadedUser = repository.loadProfile()
             async let loadedPreferences = repository.loadPreferences()
-            user = try await loadedUser
-            preferences = try await loadedPreferences
+            let nextUser = try await loadedUser
+            let nextPreferences = try await loadedPreferences
+            withAnimation(OneMotion.animation(.calmRefresh)) {
+                user = nextUser
+                preferences = nextPreferences
+            }
             notificationStatus = await applier.status()
             errorMessage = nil
         } catch {
@@ -1417,19 +1550,27 @@ public final class ProfileViewModel: ObservableObject, NotificationScheduleRefre
         guard let preferences else {
             return
         }
-        notificationStatus = await applier.apply(preferences: preferences)
+        let refreshedStatus = await applier.apply(preferences: preferences)
+        withAnimation(OneMotion.animation(.calmRefresh)) {
+            notificationStatus = refreshedStatus
+        }
     }
 
     public func saveProfile(displayName: String) async {
         do {
-            user = try await repository.updateProfile(
+            let updatedUser = try await repository.updateProfile(
                 UserProfileUpdateInput(
                     displayName: displayName,
                     timezone: TimeZone.autoupdatingCurrent.identifier
                 )
             )
+            withAnimation(OneMotion.animation(.stateChange)) {
+                user = updatedUser
+            }
+            OneHaptics.shared.trigger(.saveSucceeded)
             errorMessage = nil
         } catch {
+            OneHaptics.shared.trigger(.saveFailed)
             errorMessage = userFacingError(error)
         }
     }
@@ -1437,10 +1578,14 @@ public final class ProfileViewModel: ObservableObject, NotificationScheduleRefre
     public func savePreferences(input: UserPreferencesUpdateInput) async {
         do {
             let updated = try await repository.updatePreferences(input)
-            preferences = updated
+            withAnimation(OneMotion.animation(.stateChange)) {
+                preferences = updated
+            }
             notificationStatus = await applier.apply(preferences: updated)
+            OneHaptics.shared.trigger(.saveSucceeded)
             errorMessage = nil
         } catch {
+            OneHaptics.shared.trigger(.saveFailed)
             errorMessage = userFacingError(error)
         }
     }
