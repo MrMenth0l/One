@@ -1,11 +1,42 @@
 import XCTest
 import Foundation
-import OneClient
+@testable import OneClient
 import SwiftUI
 import Combine
 
 @MainActor
 final class OneAppTests: XCTestCase {
+    func testAddContextUsesPrimaryActionsOutsideFinance() {
+        let appTabs: [OneAppShell.Tab] = [.today, .review, .settings]
+
+        for tab in appTabs {
+            XCTAssertEqual(OneAddContext(tab: tab).actions, [.task, .habit, .note])
+        }
+    }
+
+    func testAddContextUsesFinanceActionsInsideFinance() {
+        XCTAssertEqual(OneAddContext(tab: .finance).actions, [.income, .expense, .transfer])
+        XCTAssertEqual(OneAddAction.task.iconKey, .task)
+        XCTAssertEqual(OneAddAction.habit.iconKey, .habit)
+        XCTAssertEqual(OneAddAction.note.iconKey, .note)
+        XCTAssertEqual(OneAddAction.income.iconKey, .income)
+        XCTAssertEqual(OneAddAction.expense.iconKey, .expense)
+        XCTAssertEqual(OneAddAction.transfer.iconKey, .transfer)
+        XCTAssertEqual(OneAddAction.income.financeTransactionType, .income)
+        XCTAssertEqual(OneAddAction.expense.financeTransactionType, .expense)
+        XCTAssertEqual(OneAddAction.transfer.financeTransactionType, .transfer)
+        XCTAssertNil(OneAddAction.task.financeTransactionType)
+    }
+
+    func testOneIconKeyNormalizesLegacyTaskCategoryIcons() {
+        XCTAssertEqual(OneIconKey.taskCategory(name: "Gym", storedIcon: "🏋️"), .categoryGym)
+        XCTAssertEqual(OneIconKey.taskCategory(name: "School", storedIcon: "🎓"), .categorySchool)
+        XCTAssertEqual(OneIconKey.taskCategory(name: "Personal Projects", storedIcon: "💡"), .categoryProjects)
+        XCTAssertEqual(OneIconKey.taskCategory(name: "Wellbeing", storedIcon: "🌿"), .categoryWellbeing)
+        XCTAssertEqual(OneIconKey.taskCategory(name: "Life Admin", storedIcon: "🧾"), .categoryLifeAdmin)
+        XCTAssertEqual(OneIconKey.taskCategory(name: "Unknown", storedIcon: nil), .categoryGeneric)
+    }
+
     func testThemePreferenceMapping() throws {
         XCTAssertEqual(OneTheme.preferredColorScheme(from: .light), .light)
         XCTAssertEqual(OneTheme.preferredColorScheme(from: .dark), .dark)
@@ -167,6 +198,16 @@ final class OneAppTests: XCTestCase {
 
         let categories = try await tasksRepository.loadCategories()
         XCTAssertEqual(categories.count, 5)
+        XCTAssertEqual(
+            categories.map(\.icon),
+            [
+                OneIconKey.categoryGym.rawValue,
+                OneIconKey.categorySchool.rawValue,
+                OneIconKey.categoryProjects.rawValue,
+                OneIconKey.categoryWellbeing.rawValue,
+                OneIconKey.categoryLifeAdmin.rawValue,
+            ]
+        )
 
         let habit = try await tasksRepository.createHabit(
             HabitCreateInput(
@@ -223,6 +264,43 @@ final class OneAppTests: XCTestCase {
         XCTAssertEqual(reflections.first?.content, "Captured another note")
         try await assertAnalyticsActivityFilter()
         try await assertWeeklyHabitStaysOnConfiguredWeekdayAcrossDeviceTimezones()
+    }
+
+    func testOfflineTodayOrdersNewestSamePriorityTodoFirst() async throws {
+        let sessionStore = InMemoryAuthSessionStore()
+        let stack = try LocalPersistenceFactory.makeInMemory(sessionStore: sessionStore)
+
+        let authRepository = DefaultAuthRepository(apiClient: stack.apiClient)
+        let tasksRepository = DefaultTasksRepository(apiClient: stack.apiClient, syncQueue: stack.syncQueue)
+        let todayRepository = DefaultTodayRepository(apiClient: stack.apiClient, syncQueue: stack.syncQueue)
+
+        _ = try await authRepository.signup(
+            email: "ordering@one.local",
+            password: "offline-local-profile",
+            displayName: "Ordering User",
+            timezone: "America/Guatemala"
+        )
+
+        let categories = try await tasksRepository.loadCategories()
+        let older = try await tasksRepository.createTodo(
+            TodoCreateInput(
+                categoryId: categories[0].id,
+                title: "Alpha task",
+                priority: 50
+            )
+        )
+        try? await Task.sleep(for: .milliseconds(20))
+        let newer = try await tasksRepository.createTodo(
+            TodoCreateInput(
+                categoryId: categories[0].id,
+                title: "Zulu task",
+                priority: 50
+            )
+        )
+
+        let today = try await todayRepository.loadToday(date: "2026-03-12")
+
+        XCTAssertEqual(today.items.map(\.itemId), [newer.id, older.id])
     }
 
     func testStoredLocalStoreBootstrapFlow() async throws {
@@ -528,6 +606,80 @@ final class OneAppTests: XCTestCase {
         XCTAssertEqual(viewModel.sentimentOverview?.trend.count, 31)
     }
 
+    func testAnalyticsYearSelectionCommitsAfterDataLoads() async throws {
+        let repository = AnalyticsStubRepository(
+            period: PeriodSummary(
+                periodType: .yearly,
+                periodStart: "2026-01-01",
+                periodEnd: "2026-12-31",
+                completedItems: 9,
+                expectedItems: 12,
+                completionRate: 0.75,
+                activeDays: 4,
+                consistencyScore: 0.66
+            ),
+            daily: [
+                DailySummary(
+                    dateLocal: "2026-01-04",
+                    completedItems: 2,
+                    expectedItems: 3,
+                    completionRate: 2.0 / 3.0,
+                    habitCompleted: 1,
+                    habitExpected: 2,
+                    todoCompleted: 1,
+                    todoExpected: 1
+                ),
+                DailySummary(
+                    dateLocal: "2026-05-12",
+                    completedItems: 4,
+                    expectedItems: 5,
+                    completionRate: 0.8,
+                    habitCompleted: 2,
+                    habitExpected: 3,
+                    todoCompleted: 2,
+                    todoExpected: 2
+                ),
+            ],
+            delayNanos: 150_000_000
+        )
+        let viewModel = AnalyticsViewModel(repository: repository)
+
+        let loadTask = Task {
+            await viewModel.loadPeriod(anchorDate: "2026-03-12", periodType: .yearly, weekStart: 0)
+        }
+
+        try await Task.sleep(for: .milliseconds(20))
+
+        XCTAssertEqual(viewModel.selectedPeriod, .weekly)
+        XCTAssertEqual(viewModel.pendingPeriod, .yearly)
+        XCTAssertTrue(viewModel.isSwitchingPeriod)
+
+        await loadTask.value
+
+        XCTAssertEqual(viewModel.selectedPeriod, .yearly)
+        XCTAssertNil(viewModel.pendingPeriod)
+        XCTAssertFalse(viewModel.isSwitchingPeriod)
+        XCTAssertEqual(viewModel.chartSeries.labels.count, 12)
+        XCTAssertEqual(viewModel.contributionSections.count, 12)
+    }
+
+    func testNotesViewModelCreateNoteAddsEntryToSelectedDay() async throws {
+        let repository = ReflectionsStubRepository(notes: [])
+        let viewModel = NotesViewModel(repository: repository)
+
+        await viewModel.load(anchorDate: "2026-03-12", periodType: .daily, weekStart: 0, forceReload: true)
+        let created = await viewModel.createNote(
+            content: "Captured while the day was moving",
+            sentiment: .focused
+        )
+
+        XCTAssertNotNil(created)
+        XCTAssertEqual(viewModel.selectedDayNotes.count, 1)
+        XCTAssertEqual(viewModel.selectedDayNotes.first?.content, "Captured while the day was moving")
+        XCTAssertEqual(viewModel.sentimentSummary?.noteCount, 1)
+        XCTAssertEqual(viewModel.sentimentSummary?.dominant, .focused)
+    }
+
     private func assertWeeklyHabitStaysOnConfiguredWeekdayAcrossDeviceTimezones() async throws {
         let originalTimeZone = NSTimeZone.default
         defer { NSTimeZone.default = originalTimeZone }
@@ -743,22 +895,34 @@ private actor FlakyCompletionAPIClient: APIClient {
 private actor AnalyticsStubRepository: AnalyticsRepository {
     let period: PeriodSummary
     let daily: [DailySummary]
+    let delayNanos: UInt64
 
-    init(period: PeriodSummary, daily: [DailySummary]) {
+    init(period: PeriodSummary, daily: [DailySummary], delayNanos: UInt64 = 0) {
         self.period = period
         self.daily = daily
+        self.delayNanos = delayNanos
     }
 
     func loadWeekly(anchorDate: String) async throws -> PeriodSummary {
-        period
+        try await sleepIfNeeded()
+        return period
     }
 
     func loadPeriod(anchorDate: String, periodType: PeriodType) async throws -> PeriodSummary {
-        period
+        try await sleepIfNeeded()
+        return period
     }
 
     func loadDaily(startDate: String, endDate: String) async throws -> [DailySummary] {
-        daily
+        try await sleepIfNeeded()
+        return daily
+    }
+
+    private func sleepIfNeeded() async throws {
+        guard delayNanos > 0 else {
+            return
+        }
+        try await Task.sleep(nanoseconds: delayNanos)
     }
 }
 
@@ -777,7 +941,17 @@ private actor ReflectionsStubRepository: ReflectionsRepository {
     }
 
     func upsert(input: ReflectionWriteInput) async throws -> ReflectionNote {
-        throw APIError.transport("unused")
+        let now = ISO8601DateFormatter().string(from: Date())
+        let note = try makeReflectionNote(
+            id: UUID().uuidString,
+            periodStart: input.periodStart,
+            content: input.content,
+            sentiment: input.sentiment,
+            createdAt: now,
+            updatedAt: now
+        )
+        notes.insert(note, at: 0)
+        return note
     }
 
     func delete(id: String) async throws {

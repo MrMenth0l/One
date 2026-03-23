@@ -7,10 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		4F4A3C7B11E74B32A0D10A01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4F4A3C7B11E74B32A0D10A02 /* Assets.xcassets */; };
+		3393BE0075F0143A553FD39A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C7419A80EBE3879D8939959C /* Assets.xcassets */; };
 		40B949C4FFC70911C22D57E0 /* OneApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B33942C20ED1073B2196496E /* OneApp.swift */; };
 		602485C98EDF6220A486FF29 /* OneAppTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17EAFB9A26D3B9AD2A6F46F4 /* OneAppTests.swift */; };
 		9DF3CEF2E75A2B2435DD70EE /* OneClient in Frameworks */ = {isa = PBXBuildFile; productRef = AC50CE95DB86A1D98D8A6CA5 /* OneClient */; };
+		AA3A5C9B35C4849961BC3400 /* FinanceFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15995754E1B4CEB37DDDA974 /* FinanceFeatureTests.swift */; };
+		D9C02C45968021D11745E2E0 /* UtilityRailTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8324179B0976C4D245A3B3D3 /* UtilityRailTests.swift */; };
 		EDF94E7D5245DE5A2E4DF104 /* OneClient in Frameworks */ = {isa = PBXBuildFile; productRef = BB48C7A912A28ACF6DDFD279 /* OneClient */; };
 /* End PBXBuildFile section */
 
@@ -25,16 +27,17 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		15995754E1B4CEB37DDDA974 /* FinanceFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinanceFeatureTests.swift; sourceTree = "<group>"; };
 		17EAFB9A26D3B9AD2A6F46F4 /* OneAppTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneAppTests.swift; sourceTree = "<group>"; };
 		1BCA2D4356405507AF104C18 /* Info.Release.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.Release.plist; sourceTree = "<group>"; };
 		2A17516AB588927DDD020CBF /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
-		4F4A3C7B11E74B32A0D10A02 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		45C990E41F38580761D802C5 /* OneClient */ = {isa = PBXFileReference; lastKnownFileType = folder; name = OneClient; path = ../OneClient; sourceTree = SOURCE_ROOT; };
-		560A02CB653B1D8A1112EB7C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		79B240AEA6EE7320BE772E73 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		8324179B0976C4D245A3B3D3 /* UtilityRailTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtilityRailTests.swift; sourceTree = "<group>"; };
 		AFA87FA0D69DA533A948E2F6 /* One.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = One.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0E075BA2CE7549449DD4557 /* Info.Debug.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.Debug.plist; sourceTree = "<group>"; };
 		B33942C20ED1073B2196496E /* OneApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneApp.swift; sourceTree = "<group>"; };
+		C7419A80EBE3879D8939959C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D0354F8A3B2FAEFCF7502329 /* OneAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OneAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -72,7 +75,9 @@
 		055E7A1BBC46176BA49AD1F2 /* OneAppTests */ = {
 			isa = PBXGroup;
 			children = (
+				15995754E1B4CEB37DDDA974 /* FinanceFeatureTests.swift */,
 				17EAFB9A26D3B9AD2A6F46F4 /* OneAppTests.swift */,
+				8324179B0976C4D245A3B3D3 /* UtilityRailTests.swift */,
 			);
 			path = OneAppTests;
 			sourceTree = "<group>";
@@ -97,9 +102,8 @@
 		98DDAF1BBA29209B50B1EC16 /* OneApp */ = {
 			isa = PBXGroup;
 			children = (
-				4F4A3C7B11E74B32A0D10A02 /* Assets.xcassets */,
+				C7419A80EBE3879D8939959C /* Assets.xcassets */,
 				B0E075BA2CE7549449DD4557 /* Info.Debug.plist */,
-				560A02CB653B1D8A1112EB7C /* Info.plist */,
 				1BCA2D4356405507AF104C18 /* Info.Release.plist */,
 				B33942C20ED1073B2196496E /* OneApp.swift */,
 			);
@@ -204,7 +208,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4F4A3C7B11E74B32A0D10A01 /* Assets.xcassets in Resources */,
+				3393BE0075F0143A553FD39A /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -223,7 +227,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA3A5C9B35C4849961BC3400 /* FinanceFeatureTests.swift in Sources */,
 				602485C98EDF6220A486FF29 /* OneAppTests.swift in Sources */,
+				D9C02C45968021D11745E2E0 /* UtilityRailTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -250,11 +256,10 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/One.app/One";
-				PRODUCT_NAME = OneAppTests;
-				SWIFT_MODULE_NAME = OneAppTests;
 			};
 			name = Debug;
 		};
@@ -402,7 +407,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.yehosuahercules.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yehosuah.one.app;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -420,11 +425,10 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/One.app/One";
-				PRODUCT_NAME = OneAppTests;
-				SWIFT_MODULE_NAME = OneAppTests;
 			};
 			name = Release;
 		};
@@ -441,7 +445,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.yehosuahercules.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yehosuah.one.app;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

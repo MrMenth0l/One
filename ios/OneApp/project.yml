@@ -52,7 +52,10 @@ targets:
         product: OneClient
     settings:
       base:
+        BUNDLE_LOADER: "$(TEST_HOST)"
         GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_NAME: "$(TARGET_NAME)"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/One.app/One"
 schemes:
   OneApp:
     build:

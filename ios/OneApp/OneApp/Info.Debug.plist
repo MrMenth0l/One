@@ -27,6 +27,10 @@
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>One needs local network access to reach your development API on your Mac.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>One uses the microphone only for local voice expense entry inside One Finance.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>One uses on-device speech recognition to turn short spoken expenses into local finance entries.</string>
 	<key>ONE_API_BASE_URL</key>
 	<string>http://127.0.0.1:8000</string>
 	<key>UIApplicationSceneManifest</key>
