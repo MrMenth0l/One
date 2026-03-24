@@ -36,7 +36,7 @@ def create_onboarding_bundle(
                 id=str(uuid4()),
                 user_id=user_id,
                 name=name,
-                icon=DEFAULT_CATEGORY_ICONS.get(name, "circle"),
+                icon=DEFAULT_CATEGORY_ICONS.get(name, "category.generic"),
                 sort_order=index,
                 is_default=True,
             )

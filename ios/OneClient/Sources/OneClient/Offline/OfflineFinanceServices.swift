@@ -8,17 +8,17 @@ struct FinanceStarterCategoryTemplate: Sendable, Equatable {
 
 struct LocalFinanceCategoryService {
     let starterTemplates: [FinanceStarterCategoryTemplate] = [
-        FinanceStarterCategoryTemplate(name: "Food", iconName: "fork.knife", aliases: ["food", "coffee", "groceries", "lunch", "dinner", "breakfast", "snack"]),
-        FinanceStarterCategoryTemplate(name: "Gas / Transport", iconName: "car.fill", aliases: ["gas", "transport", "uber", "taxi", "fuel", "bus", "parking"]),
-        FinanceStarterCategoryTemplate(name: "Shopping", iconName: "bag.fill", aliases: ["shopping", "store", "clothes", "market"]),
-        FinanceStarterCategoryTemplate(name: "Entertainment", iconName: "popcorn.fill", aliases: ["entertainment", "movie", "games", "cinema", "music"]),
-        FinanceStarterCategoryTemplate(name: "Subscriptions", iconName: "repeat.circle.fill", aliases: ["subscription", "subscriptions", "netflix", "spotify", "streaming"]),
-        FinanceStarterCategoryTemplate(name: "Bills", iconName: "doc.text.fill", aliases: ["bill", "bills", "utilities", "internet", "rent", "electricity", "water"]),
-        FinanceStarterCategoryTemplate(name: "Health", iconName: "heart.text.square.fill", aliases: ["health", "doctor", "medicine", "pharmacy", "clinic"]),
-        FinanceStarterCategoryTemplate(name: "School", iconName: "book.closed.fill", aliases: ["school", "study", "books", "class", "tuition"]),
-        FinanceStarterCategoryTemplate(name: "Gifts", iconName: "gift.fill", aliases: ["gift", "gifts", "present"]),
-        FinanceStarterCategoryTemplate(name: "Savings", iconName: "archivebox.fill", aliases: ["savings", "save"]),
-        FinanceStarterCategoryTemplate(name: "Miscellaneous", iconName: "ellipsis.circle.fill", aliases: ["misc", "miscellaneous", "other"])
+        FinanceStarterCategoryTemplate(name: "Food", iconName: OneIconKey.financeFood.rawValue, aliases: ["food", "coffee", "groceries", "lunch", "dinner", "breakfast", "snack"]),
+        FinanceStarterCategoryTemplate(name: "Gas / Transport", iconName: OneIconKey.financeTransport.rawValue, aliases: ["gas", "transport", "uber", "taxi", "fuel", "bus", "parking"]),
+        FinanceStarterCategoryTemplate(name: "Shopping", iconName: OneIconKey.financeShopping.rawValue, aliases: ["shopping", "store", "clothes", "market"]),
+        FinanceStarterCategoryTemplate(name: "Entertainment", iconName: OneIconKey.financeEntertainment.rawValue, aliases: ["entertainment", "movie", "games", "cinema", "music"]),
+        FinanceStarterCategoryTemplate(name: "Subscriptions", iconName: OneIconKey.financeSubscriptions.rawValue, aliases: ["subscription", "subscriptions", "netflix", "spotify", "streaming"]),
+        FinanceStarterCategoryTemplate(name: "Bills", iconName: OneIconKey.financeBills.rawValue, aliases: ["bill", "bills", "utilities", "internet", "rent", "electricity", "water"]),
+        FinanceStarterCategoryTemplate(name: "Health", iconName: OneIconKey.financeHealth.rawValue, aliases: ["health", "doctor", "medicine", "pharmacy", "clinic"]),
+        FinanceStarterCategoryTemplate(name: "School", iconName: OneIconKey.financeEducation.rawValue, aliases: ["school", "study", "books", "class", "tuition"]),
+        FinanceStarterCategoryTemplate(name: "Gifts", iconName: OneIconKey.financeGifts.rawValue, aliases: ["gift", "gifts", "present"]),
+        FinanceStarterCategoryTemplate(name: "Savings", iconName: OneIconKey.financeSavings.rawValue, aliases: ["savings", "save"]),
+        FinanceStarterCategoryTemplate(name: "Miscellaneous", iconName: OneIconKey.financeMisc.rawValue, aliases: ["misc", "miscellaneous", "other"])
     ]
 
     func defaultCurrencyCode() -> String {

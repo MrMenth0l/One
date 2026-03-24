@@ -52,11 +52,11 @@ DEFAULT_CATEGORY_NAMES = [
 ]
 
 DEFAULT_CATEGORY_ICONS = {
-    "Gym": "🏋️",
-    "School": "🎓",
-    "Personal Projects": "💡",
-    "Wellbeing": "🌿",
-    "Life Admin": "🧾",
+    "Gym": "category.gym",
+    "School": "category.school",
+    "Personal Projects": "category.projects",
+    "Wellbeing": "category.wellbeing",
+    "Life Admin": "category.life-admin",
 }
 
 
@@ -75,7 +75,7 @@ class Category:
     id: str
     user_id: str
     name: str
-    icon: str = "circle"
+    icon: str = "category.generic"
     color: str = "#5B8DEF"
     sort_order: int = 0
     is_default: bool = False

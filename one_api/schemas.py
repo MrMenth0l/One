@@ -46,7 +46,7 @@ class UserUpdateRequest(BaseModel):
 
 class CategoryCreateRequest(BaseModel):
     name: str
-    icon: str = "circle"
+    icon: str = "category.generic"
     color: str = "#5B8DEF"
 
 

@@ -1,0 +1,1167 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ONE Iconography and Symbol System</title>
+    <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+    <style>
+      :root {
+        --bg: #edf1f6;
+        --bg-top: #f9fbfd;
+        --panel: rgba(255, 255, 255, 0.94);
+        --panel-strong: #f4f7fb;
+        --panel-soft: rgba(255, 255, 255, 0.74);
+        --ink: #151b24;
+        --ink-soft: #445062;
+        --muted: #697487;
+        --line: rgba(17, 24, 39, 0.08);
+        --line-strong: rgba(17, 24, 39, 0.12);
+        --accent: #4d6f8c;
+        --accent-deep: #253a50;
+        --accent-soft: rgba(77, 111, 140, 0.12);
+        --success: #4d8a62;
+        --warning: #bb8b4b;
+        --danger: #c0675a;
+        --graphite: #121722;
+        --graphite-soft: #1c2430;
+        --radius-xl: 36px;
+        --radius-lg: 28px;
+        --radius-md: 22px;
+        --radius-sm: 16px;
+        --shadow: 0 26px 60px rgba(15, 23, 42, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0) 30%),
+          linear-gradient(180deg, var(--bg-top) 0%, var(--bg) 38%, #e9eef5 100%);
+      }
+
+      .canvas {
+        width: 1720px;
+        margin: 0 auto;
+        padding: 40px 0 96px;
+        display: grid;
+        gap: 28px;
+      }
+
+      .hero,
+      .artboard {
+        border-radius: var(--radius-xl);
+        border: 1px solid rgba(255, 255, 255, 0.66);
+        background: var(--panel-soft);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(22px);
+      }
+
+      .hero {
+        padding: 32px 34px;
+      }
+
+      .hero-top,
+      .artboard-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+      }
+
+      .hero-top {
+        align-items: flex-start;
+      }
+
+      .artboard {
+        padding: 30px;
+      }
+
+      .title-block {
+        max-width: 720px;
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 40px;
+        line-height: 0.98;
+        letter-spacing: -0.055em;
+      }
+
+      h2 {
+        font-size: 28px;
+        line-height: 1;
+        letter-spacing: -0.035em;
+      }
+
+      .hero-copy,
+      .artboard-copy {
+        margin-top: 10px;
+        font-size: 15px;
+        line-height: 1.55;
+        color: var(--muted);
+      }
+
+      .badge-strip,
+      .pill-strip {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .badge,
+      .pill {
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.78);
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--ink-soft);
+      }
+
+      .hero-specs {
+        display: grid;
+        grid-template-columns: 1.25fr 1fr 1fr 1fr;
+        gap: 16px;
+        margin-top: 24px;
+      }
+
+      .spec-card,
+      .brand-card,
+      .icon-card {
+        border-radius: var(--radius-md);
+        border: 1px solid var(--line);
+        background: var(--panel);
+      }
+
+      .spec-card {
+        padding: 18px;
+        display: grid;
+        gap: 10px;
+      }
+
+      .spec-title,
+      .card-label {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .spec-value {
+        font-size: 22px;
+        line-height: 1.08;
+        letter-spacing: -0.03em;
+      }
+
+      .spec-copy {
+        font-size: 13px;
+        line-height: 1.55;
+        color: var(--muted);
+      }
+
+      .spec-list {
+        display: grid;
+        gap: 8px;
+        margin-top: 2px;
+      }
+
+      .spec-line {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding-top: 8px;
+        border-top: 1px solid var(--line);
+        font-size: 12px;
+        color: var(--ink-soft);
+      }
+
+      .brand-grid {
+        display: grid;
+        grid-template-columns: 1.35fr 1fr 1fr;
+        gap: 16px;
+        margin-top: 20px;
+      }
+
+      .brand-card {
+        padding: 20px;
+        min-height: 238px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .brand-card.primary {
+        grid-row: span 2;
+      }
+
+      .brand-card.dark {
+        background: linear-gradient(180deg, #151b24 0%, #10141c 100%);
+        border-color: rgba(255, 255, 255, 0.06);
+        color: #f7f9fc;
+      }
+
+      .brand-card.dark .card-label,
+      .brand-card.dark .variant-note {
+        color: rgba(238, 243, 249, 0.76);
+      }
+
+      .logo-lockup {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        min-height: 146px;
+      }
+
+      .logo-shot {
+        width: 136px;
+        height: 136px;
+        flex: 0 0 auto;
+        border-radius: 36px;
+        overflow: hidden;
+        border: 1px solid rgba(17, 24, 39, 0.06);
+        background:
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0) 54%),
+          linear-gradient(180deg, #f7fafd 0%, #edf3f9 100%);
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+      }
+
+      .logo-shot img,
+      .app-icon-tile img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: contain;
+      }
+
+      .symbol-stage {
+        width: 116px;
+        height: 116px;
+        border-radius: 32px;
+        border: 1px solid rgba(17, 24, 39, 0.06);
+        background:
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0) 54%),
+          linear-gradient(180deg, #f9fbfd 0%, #eff4f9 100%);
+        display: grid;
+        place-items: center;
+        color: var(--ink);
+      }
+
+      .symbol-stage.accent {
+        color: var(--accent-deep);
+        background:
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0) 54%),
+          linear-gradient(180deg, #f5f8fb 0%, #edf3f9 100%);
+      }
+
+      .wordmark {
+        font-size: 54px;
+        line-height: 0.94;
+        letter-spacing: -0.12em;
+        font-weight: 740;
+      }
+
+      .wordmark-copy {
+        margin-top: 8px;
+        max-width: 360px;
+        font-size: 14px;
+        line-height: 1.55;
+        color: var(--muted);
+      }
+
+      .construction-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-top: auto;
+      }
+
+      .construction-chip {
+        padding: 12px;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: linear-gradient(180deg, #fbfcfe 0%, #f3f7fb 100%);
+        display: grid;
+        gap: 4px;
+      }
+
+      .construction-chip strong {
+        font-size: 13px;
+        line-height: 1.2;
+      }
+
+      .construction-chip span {
+        font-size: 12px;
+        line-height: 1.45;
+        color: var(--muted);
+      }
+
+      .app-icon-tile,
+      .mini-surface {
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+      }
+
+      .app-icon-tile {
+        width: 184px;
+        min-height: 172px;
+        height: 184px;
+        margin: 0 auto;
+        border-radius: 34px;
+        background:
+          radial-gradient(circle at 30% 20%, rgba(149, 176, 202, 0.18) 0%, rgba(149, 176, 202, 0) 42%),
+          linear-gradient(180deg, #182433 0%, #0f1724 100%);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.08),
+          inset 0 -18px 24px rgba(0, 0, 0, 0.14);
+        color: #f5f8fc;
+      }
+
+      .brand-surface {
+        min-height: 142px;
+        border-radius: 28px;
+        border: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        overflow: hidden;
+      }
+
+      .light-surface {
+        background:
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0) 58%),
+          linear-gradient(180deg, #fbfcfe 0%, #f2f6fb 100%);
+        color: var(--ink);
+      }
+
+      .dark-surface {
+        background:
+          radial-gradient(circle at top left, rgba(166, 192, 216, 0.12) 0%, rgba(166, 192, 216, 0) 50%),
+          linear-gradient(180deg, #1b2431 0%, #111823 100%);
+        color: #f6f9fd;
+      }
+
+      .surface-word {
+        margin-top: 8px;
+        font-size: 34px;
+        letter-spacing: -0.1em;
+        font-weight: 740;
+      }
+
+      .variant-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .mini-surface {
+        min-height: 142px;
+        border-radius: 24px;
+        border: 1px solid var(--line);
+        background: #fcfdff;
+        color: var(--ink);
+      }
+
+      .mini-surface.soft {
+        background:
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0) 55%),
+          linear-gradient(180deg, #f8fafd 0%, #eef3f8 100%);
+        color: var(--accent-deep);
+      }
+
+      .variant-note {
+        font-size: 13px;
+        line-height: 1.55;
+        color: var(--muted);
+      }
+
+      .icon-grid {
+        display: grid;
+        gap: 14px;
+        margin-top: 20px;
+      }
+
+      .icon-grid.core {
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+      }
+
+      .icon-grid.category {
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+      }
+
+      .icon-grid.state {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+      }
+
+      .icon-card {
+        padding: 14px;
+        min-height: 212px;
+        display: grid;
+        gap: 10px;
+      }
+
+      .icon-variants {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .icon-variant {
+        display: grid;
+        gap: 6px;
+      }
+
+      .icon-tone-label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .icon-stage {
+        height: 64px;
+        border-radius: 16px;
+        border: 1px solid rgba(17, 24, 39, 0.04);
+        background:
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0) 56%),
+          linear-gradient(180deg, #fbfcfe 0%, #f2f6fa 100%);
+        display: grid;
+        place-items: center;
+        color: var(--ink);
+      }
+
+      .icon-stage.tint {
+        color: var(--accent-deep);
+        background:
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 56%),
+          linear-gradient(180deg, #f6f9fc 0%, #eef4f9 100%);
+      }
+
+      .icon-stage.dark {
+        background:
+          radial-gradient(circle at top left, rgba(166, 192, 216, 0.16) 0%, rgba(166, 192, 216, 0) 50%),
+          linear-gradient(180deg, #1a2330 0%, #111823 100%);
+        border-color: rgba(255, 255, 255, 0.06);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        color: #f7f9fc;
+      }
+
+      .icon-stage.dark.tint {
+        color: #eef4fb;
+      }
+
+      .icon-label {
+        font-size: 15px;
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+        font-weight: 650;
+      }
+
+      .icon-meta {
+        font-size: 12px;
+        line-height: 1.45;
+        color: var(--muted);
+      }
+
+      .scale-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding-top: 10px;
+        border-top: 1px solid var(--line);
+      }
+
+      .scale-preview {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--ink-soft);
+      }
+
+      .scale-pill {
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: #fafcfe;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .brand-symbol {
+        width: 62px;
+        height: 62px;
+      }
+
+      .brand-symbol.large {
+        width: 96px;
+        height: 96px;
+      }
+
+      .brand-symbol.app {
+        width: 124px;
+        height: 124px;
+      }
+
+      .icon {
+        width: 34px;
+        height: 34px;
+      }
+
+      .icon.s16 {
+        width: 16px;
+        height: 16px;
+      }
+
+      .icon.s20 {
+        width: 20px;
+        height: 20px;
+      }
+
+      .icon.s24 {
+        width: 24px;
+        height: 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="canvas">
+      <section class="hero">
+        <div class="hero-top">
+          <div class="title-block">
+            <p class="eyebrow">ONE Iconography System</p>
+            <h1>Premium iOS-first iconography for habits, reflection, analytics, finance, and personal operating system flows.</h1>
+            <p class="hero-copy">
+              The system now uses the shipped ONE app logo language from the PNG asset, paired with a refined rounded monoline icon family.
+              Every icon board shows both light and dark render modes so the system reads cleanly across bright iOS surfaces and graphite dark mode.
+            </p>
+          </div>
+          <div class="badge-strip">
+            <span class="badge">Refined Monoline</span>
+            <span class="badge">24px Grid</span>
+            <span class="badge">1.9pt Stroke</span>
+            <span class="badge">Continuous Radius</span>
+            <span class="badge">Graphite + Slate</span>
+            <span class="badge">iOS-Compatible</span>
+          </div>
+        </div>
+        <div class="hero-specs">
+          <article class="spec-card">
+            <span class="spec-title">System Choice</span>
+            <div class="spec-value">Rounded monoline with restrained geometric cues.</div>
+            <p class="spec-copy">
+              Chosen to keep the family calm, readable, and premium across small list rows, chips, empty states, analytics legends, and larger navigation surfaces.
+            </p>
+          </article>
+          <article class="spec-card">
+            <span class="spec-title">Grid and Weight</span>
+            <div class="spec-list">
+              <div class="spec-line"><span>Grid</span><strong>24 x 24</strong></div>
+              <div class="spec-line"><span>Stroke</span><strong>1.85 to 1.95</strong></div>
+              <div class="spec-line"><span>Caps</span><strong>Rounded</strong></div>
+              <div class="spec-line"><span>Joins</span><strong>Rounded</strong></div>
+            </div>
+          </article>
+          <article class="spec-card">
+            <span class="spec-title">Brand Logic</span>
+            <div class="spec-list">
+              <div class="spec-line"><span>Ring</span><strong>Continuity</strong></div>
+              <div class="spec-line"><span>Check</span><strong>Completion</strong></div>
+              <div class="spec-line"><span>Badge</span><strong>Identity</strong></div>
+              <div class="spec-line"><span>Container</span><strong>App presence</strong></div>
+            </div>
+          </article>
+          <article class="spec-card">
+            <span class="spec-title">Rendering Rules</span>
+            <div class="spec-list">
+              <div class="spec-line"><span>UI icons</span><strong>Charcoal</strong></div>
+              <div class="spec-line"><span>Inverse icons</span><strong>White</strong></div>
+              <div class="spec-line"><span>Light surface</span><strong>Neutral glass</strong></div>
+              <div class="spec-line"><span>Dark surface</span><strong>Graphite depth</strong></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="artboard">
+        <div class="artboard-head">
+          <div>
+            <p class="eyebrow">01 Brand Marks</p>
+            <h2>ONE Brand and Symbol Board</h2>
+            <p class="artboard-copy">The brand layer now follows the shipped app logo: a ringed check with a numeral badge, translated into compact light and dark glyphs.</p>
+          </div>
+          <div class="pill-strip">
+            <span class="pill">Primary Logo</span>
+            <span class="pill">App Icon</span>
+            <span class="pill">Simplified Symbol</span>
+            <span class="pill">Light / Dark</span>
+            <span class="pill">Monochrome</span>
+          </div>
+        </div>
+        <div class="brand-grid">
+          <article class="brand-card primary">
+            <span class="card-label">Primary Logo</span>
+            <div class="logo-lockup">
+              <div class="logo-shot">
+                <img src="./logo.png" alt="ONE app logo" />
+              </div>
+              <div>
+                <div class="wordmark">ONE</div>
+                <p class="wordmark-copy">The shipped app icon becomes the canonical brand mark. The ring, check, and numeral badge make the identity explicit without drifting into generic finance or crypto territory.</p>
+              </div>
+            </div>
+            <div class="construction-grid">
+              <div class="construction-chip">
+                <strong>Ring</strong>
+                <span>Maintains the sense of continuity and disciplined progress that already exists in the shipped icon.</span>
+              </div>
+              <div class="construction-chip">
+                <strong>Check</strong>
+                <span>Keeps completion central, with the soft blue treatment reserved for the app logo and brand moments.</span>
+              </div>
+              <div class="construction-chip">
+                <strong>Badge 1</strong>
+                <span>Adds singular identity and keeps the mark grounded as ONE instead of a generic checklist app.</span>
+              </div>
+            </div>
+          </article>
+          <article class="brand-card">
+            <span class="card-label">App Icon Mark</span>
+            <div class="app-icon-tile">
+              <img src="./logo.png" alt="ONE app icon" />
+            </div>
+            <p class="variant-note">The PNG logo is used as the source-of-truth app icon. The surrounding system borrows from it without forcing every UI glyph to become skeuomorphic.</p>
+          </article>
+          <article class="brand-card dark">
+            <span class="card-label">Dark Background Version</span>
+            <div class="brand-surface dark-surface">
+              <div id="brand-dark-symbol"></div>
+              <div class="surface-word">ONE</div>
+            </div>
+            <p class="variant-note">Dark-mode brand glyph extracted from the app icon language, simplified enough for splash, hero, and lockup use.</p>
+          </article>
+          <article class="brand-card">
+            <span class="card-label">Alternate Simplified Symbol</span>
+            <div class="brand-surface light-surface" id="brand-simple-symbol"></div>
+            <p class="variant-note">The compact ring-and-check glyph is the supporting mark for toolbars, nav headers, and tighter surfaces where the full badge would feel heavy.</p>
+          </article>
+          <article class="brand-card">
+            <span class="card-label">Light and Dark Brand Glyphs</span>
+            <div class="variant-row">
+              <div class="mini-surface" id="brand-mono-symbol"></div>
+              <div class="mini-surface soft" id="brand-light-symbol"></div>
+            </div>
+            <p class="variant-note">Neutral and accent variants keep the PNG logo recognizable while letting the broader icon family stay lighter and more native-friendly.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="artboard">
+        <div class="artboard-head">
+          <div>
+            <p class="eyebrow">02 Core Product Icons</p>
+            <h2>Core Product Icon Board</h2>
+            <p class="artboard-copy">Primary nouns stay semantically direct, and each card now shows both the light and dark render so the family is vetted across both app themes.</p>
+          </div>
+          <div class="pill-strip">
+            <span class="pill">Habits</span>
+            <span class="pill">Reviews</span>
+            <span class="pill">Finance</span>
+            <span class="pill">Profile + Utility</span>
+            <span class="pill">Light + Dark</span>
+          </div>
+        </div>
+        <div class="icon-grid core" id="core-grid"></div>
+      </section>
+
+      <section class="artboard">
+        <div class="artboard-head">
+          <div>
+            <p class="eyebrow">03 Category Icons</p>
+            <h2>Tracked Life Areas</h2>
+            <p class="artboard-copy">Category marks stay subtle enough for chips and lists, and now carry verified light and dark variants instead of relying on a single neutral presentation.</p>
+          </div>
+          <div class="pill-strip">
+            <span class="pill">Category Chips</span>
+            <span class="pill">Lists</span>
+            <span class="pill">Cards</span>
+            <span class="pill">Light + Dark</span>
+          </div>
+        </div>
+        <div class="icon-grid category" id="category-grid"></div>
+      </section>
+
+      <section class="artboard">
+        <div class="artboard-head">
+          <div>
+            <p class="eyebrow">04 State and Support Icons</p>
+            <h2>Milestones, Empty States, and Utility Feedback</h2>
+            <p class="artboard-copy">Support marks stay clear, calm, and system-like, with both light and dark preview states shown for reminders, empty states, coach surfaces, and sync feedback.</p>
+          </div>
+          <div class="pill-strip">
+            <span class="pill">Empty States</span>
+            <span class="pill">Coach Surfaces</span>
+            <span class="pill">Feedback</span>
+            <span class="pill">System States</span>
+            <span class="pill">Light + Dark</span>
+          </div>
+        </div>
+        <div class="icon-grid state" id="state-grid"></div>
+      </section>
+    </main>
+
+    <script>
+      const stroke = 'fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"';
+
+      const icons = {
+        habit: `
+          <path ${stroke} d="M18 8.5A6.5 6.5 0 0 0 7.3 6.3"/>
+          <path ${stroke} d="M18 8.5V5.5"/>
+          <path ${stroke} d="M18 8.5h-3"/>
+          <path ${stroke} d="M6 15.5A6.5 6.5 0 0 0 16.7 17.7"/>
+          <path ${stroke} d="M6 15.5v3"/>
+          <path ${stroke} d="M6 15.5h3"/>
+        `,
+        task: `
+          <rect ${stroke} x="5" y="5" width="14" height="14" rx="4"/>
+          <path ${stroke} d="m8.3 12.4 2.4 2.5 5.1-5.5"/>
+        `,
+        note: `
+          <path ${stroke} d="M8.2 4.8H14l4 4v10.3A2.9 2.9 0 0 1 15.1 22H8.9A2.9 2.9 0 0 1 6 19.1V7.7A2.9 2.9 0 0 1 8.2 4.8Z"/>
+          <path ${stroke} d="M14 4.8V9h4"/>
+          <path ${stroke} d="M9 13h6"/>
+          <path ${stroke} d="M9 16.2h4.6"/>
+        `,
+        reflection: `
+          <circle ${stroke} cx="12" cy="12" r="8"/>
+          <path ${stroke} d="M8.1 15.6c1.4-1 2.7-1.5 3.9-1.5 1.3 0 2.6.5 3.9 1.5"/>
+          <circle cx="12" cy="9.4" r="1.25" fill="currentColor"/>
+        `,
+        coach: `
+          <circle ${stroke} cx="17.4" cy="6.6" r="2.3"/>
+          <path ${stroke} d="M6 18c2-3.4 4.5-5.8 7.4-7.2"/>
+          <path ${stroke} d="M10.6 18H6v-4.6"/>
+        `,
+        bibleVerse: `
+          <path ${stroke} d="M6 6.6A2.6 2.6 0 0 1 8.6 4H12v15.6H8.8A2.8 2.8 0 0 0 6 22Z"/>
+          <path ${stroke} d="M18 6.6A2.6 2.6 0 0 0 15.4 4H12v15.6h3.2A2.8 2.8 0 0 1 18 22Z"/>
+          <path ${stroke} d="M9 9.6h1.5"/>
+          <path ${stroke} d="M13.5 9.6H15"/>
+        `,
+        analytics: `
+          <path ${stroke} d="M5 19V10.2"/>
+          <path ${stroke} d="M10 19V6.5"/>
+          <path ${stroke} d="M15 19v-4.5"/>
+          <path ${stroke} d="M4 19h16"/>
+          <path ${stroke} d="m5 13.4 5-4 5 2.2L19 7"/>
+        `,
+        progress: `
+          <path ${stroke} d="M5.2 18.2 9.3 14l3.1 3.2L19 10.3"/>
+          <path ${stroke} d="M14.8 10.3H19v4.1"/>
+        `,
+        streak: `
+          <path ${stroke} d="M5.4 15.5c1.4-2.4 2.9-4 4.7-4 1.9 0 3.1 1.5 4.7 1.5 1.5 0 2.8-1 3.8-3"/>
+          <circle cx="5.9" cy="15.5" r="1.1" fill="currentColor"/>
+          <circle cx="10.9" cy="11.5" r="1.1" fill="currentColor"/>
+          <circle cx="15.7" cy="13" r="1.1" fill="currentColor"/>
+          <circle cx="19" cy="10" r="1.1" fill="currentColor"/>
+        `,
+        dailyReview: `
+          <rect ${stroke} x="5" y="6" width="14" height="13" rx="3.4"/>
+          <path ${stroke} d="M8 4.8V7.2"/>
+          <path ${stroke} d="M16 4.8V7.2"/>
+          <path ${stroke} d="M5 9.5h14"/>
+          <rect x="10.2" y="12.1" width="3.6" height="3.6" rx="1.2" fill="currentColor"/>
+        `,
+        weeklyReview: `
+          <rect ${stroke} x="5" y="6" width="14" height="13" rx="3.4"/>
+          <path ${stroke} d="M8 4.8V7.2"/>
+          <path ${stroke} d="M16 4.8V7.2"/>
+          <path ${stroke} d="M5 9.5h14"/>
+          <circle cx="8.1" cy="13" r="0.75" fill="currentColor"/>
+          <circle cx="11" cy="13" r="0.75" fill="currentColor"/>
+          <circle cx="13.9" cy="13" r="0.75" fill="currentColor"/>
+          <circle cx="16.8" cy="13" r="0.75" fill="currentColor"/>
+          <circle cx="9.6" cy="16" r="0.75" fill="currentColor"/>
+          <circle cx="12.5" cy="16" r="0.75" fill="currentColor"/>
+          <circle cx="15.4" cy="16" r="0.75" fill="currentColor"/>
+        `,
+        monthlyReview: `
+          <rect ${stroke} x="5" y="6" width="14" height="13" rx="3.4"/>
+          <path ${stroke} d="M8 4.8V7.2"/>
+          <path ${stroke} d="M16 4.8V7.2"/>
+          <path ${stroke} d="M5 9.5h14"/>
+          <path ${stroke} d="M8.2 12.7h7.6"/>
+          <path ${stroke} d="M8.2 14.9h7.6"/>
+          <path ${stroke} d="M8.2 17.1h7.6"/>
+          <path ${stroke} d="M8.2 19.3h5.4"/>
+        `,
+        yearlyReview: `
+          <rect ${stroke} x="5" y="6" width="14" height="13" rx="3.4"/>
+          <path ${stroke} d="M8 4.8V7.2"/>
+          <path ${stroke} d="M16 4.8V7.2"/>
+          <path ${stroke} d="M5 9.5h14"/>
+          <rect ${stroke} x="8" y="12" width="3" height="3" rx="0.9"/>
+          <rect ${stroke} x="13" y="12" width="3" height="3" rx="0.9"/>
+          <rect ${stroke} x="8" y="16.2" width="3" height="3" rx="0.9"/>
+          <rect ${stroke} x="13" y="16.2" width="3" height="3" rx="0.9"/>
+        `,
+        finance: `
+          <rect ${stroke} x="4.7" y="6" width="14.6" height="12" rx="3.5"/>
+          <path ${stroke} d="M8 10.2h8"/>
+          <path ${stroke} d="M8 14.2h4"/>
+          <circle ${stroke} cx="15.5" cy="14.3" r="1.7"/>
+        `,
+        income: `
+          <path ${stroke} d="M12 5.5v8.4"/>
+          <path ${stroke} d="m8.5 10.4 3.5 3.5 3.5-3.5"/>
+          <path ${stroke} d="M6 17h12"/>
+          <path ${stroke} d="M8 20h8"/>
+        `,
+        expense: `
+          <path ${stroke} d="M6 17h12"/>
+          <path ${stroke} d="M8 20h8"/>
+          <path ${stroke} d="M12 18v-8.4"/>
+          <path ${stroke} d="m8.5 12.7 3.5-3.5 3.5 3.5"/>
+        `,
+        transfer: `
+          <rect ${stroke} x="4.5" y="6" width="6.4" height="12" rx="2.4"/>
+          <rect ${stroke} x="13.1" y="6" width="6.4" height="12" rx="2.4"/>
+          <path ${stroke} d="M9 12h6"/>
+          <path ${stroke} d="m13 9 3 3-3 3"/>
+          <path ${stroke} d="m11 15-3-3 3-3"/>
+        `,
+        transaction: `
+          <path ${stroke} d="M7 4.8h10A2.2 2.2 0 0 1 19.2 7v12.2L17 17.6l-2 1.7-2-1.7-2 1.7-2-1.7-2 1.7V7A2.2 2.2 0 0 1 7 4.8Z"/>
+          <circle cx="9.5" cy="11" r="1.05" fill="currentColor"/>
+          <path ${stroke} d="M12 11h4"/>
+          <path ${stroke} d="M8.7 14.7h7.3"/>
+        `,
+        settings: `
+          <path ${stroke} d="M7 5v14"/>
+          <path ${stroke} d="M12 5v14"/>
+          <path ${stroke} d="M17 5v14"/>
+          <circle ${stroke} cx="7" cy="9.1" r="1.8"/>
+          <circle ${stroke} cx="12" cy="15" r="1.8"/>
+          <circle ${stroke} cx="17" cy="11.2" r="1.8"/>
+        `,
+        notifications: `
+          <path ${stroke} d="M9 17v-4.4A3 3 0 0 1 12 9a3 3 0 0 1 3 3.6V17"/>
+          <path ${stroke} d="M7 17h10"/>
+          <path ${stroke} d="M10.5 19a1.5 1.5 0 0 0 3 0"/>
+          <path ${stroke} d="M15.6 7.3A2.6 2.6 0 0 1 18.5 10"/>
+        `,
+        profile: `
+          <circle ${stroke} cx="12" cy="8.1" r="3.2"/>
+          <path ${stroke} d="M5.7 18.5a6.3 6.3 0 0 1 12.6 0"/>
+        `,
+        gym: `
+          <path ${stroke} d="M4.8 10v4"/>
+          <path ${stroke} d="M7.1 8.5v7"/>
+          <path ${stroke} d="M16.9 8.5v7"/>
+          <path ${stroke} d="M19.2 10v4"/>
+          <path ${stroke} d="M7.1 12h9.8"/>
+        `,
+        school: `
+          <path ${stroke} d="M7 5h8a2 2 0 0 1 2 2v12H9a2 2 0 0 0-2 2Z"/>
+          <path ${stroke} d="M17 7h-6a2 2 0 0 0-2 2"/>
+          <path ${stroke} d="M9 5v14"/>
+        `,
+        personalProjects: `
+          <rect ${stroke} x="5" y="5" width="6" height="6" rx="2"/>
+          <rect ${stroke} x="13" y="5" width="6" height="6" rx="2"/>
+          <rect ${stroke} x="5" y="13" width="6" height="6" rx="2"/>
+          <path ${stroke} d="M16 14.3v4.8"/>
+          <path ${stroke} d="M13.6 16.7h4.8"/>
+        `,
+        wellbeing: `
+          <path ${stroke} d="M18 6c-5 0-9 4-9 9v3c5 0 9-4 9-9Z"/>
+          <path ${stroke} d="M9 18c0-3.4 2.4-6 6.1-8"/>
+        `,
+        lifeAdmin: `
+          <rect ${stroke} x="6" y="5.5" width="12" height="14" rx="3"/>
+          <path ${stroke} d="M10 5.5h4"/>
+          <path ${stroke} d="M9 10.4h6"/>
+          <path ${stroke} d="M9 13.8h6"/>
+          <circle cx="7.4" cy="10.4" r="0.8" fill="currentColor"/>
+          <circle cx="7.4" cy="13.8" r="0.8" fill="currentColor"/>
+        `,
+        faithSpiritual: `
+          <path ${stroke} d="M7 19v-8.5a5 5 0 0 1 10 0V19"/>
+          <path ${stroke} d="M12 7.3v8.1"/>
+          <path ${stroke} d="M9.5 11h5"/>
+        `,
+        completedDay: `
+          <rect ${stroke} x="5" y="6" width="14" height="13" rx="3.4"/>
+          <path ${stroke} d="M8 4.8V7.2"/>
+          <path ${stroke} d="M16 4.8V7.2"/>
+          <path ${stroke} d="M5 9.5h14"/>
+          <path ${stroke} d="m8.8 14.1 2.2 2.2 4.2-4.3"/>
+        `,
+        incompleteDay: `
+          <rect ${stroke} x="5" y="6" width="14" height="13" rx="3.4"/>
+          <path ${stroke} d="M8 4.8V7.2"/>
+          <path ${stroke} d="M16 4.8V7.2"/>
+          <path ${stroke} d="M5 9.5h14"/>
+          <circle ${stroke} cx="12" cy="14.3" r="2.7"/>
+        `,
+        milestoneReached: `
+          <path ${stroke} d="M5.5 18.5h13"/>
+          <path ${stroke} d="m7.4 18.5 4.2-9 2.4 5.1 2.2-4.2 1.3 2.7"/>
+          <path ${stroke} d="M11.6 9.5V6"/>
+          <path ${stroke} d="M11.6 6h4l-1.3 2.1h-2.7"/>
+        `,
+        streakMaintained: `
+          <path ${stroke} d="M5.4 15.5c1.4-2.4 2.9-4 4.7-4 1.9 0 3.1 1.5 4.7 1.5 1.5 0 2.8-1 3.8-3"/>
+          <path ${stroke} d="m14.8 17 1.7 1.8 2.9-3"/>
+          <circle cx="5.9" cy="15.5" r="1.05" fill="currentColor"/>
+          <circle cx="10.9" cy="11.5" r="1.05" fill="currentColor"/>
+        `,
+        streakBroken: `
+          <path ${stroke} d="M5.4 15.5c1.4-2.4 2.9-4 4.7-4 1.2 0 2.1.6 3 .9"/>
+          <path ${stroke} d="M15.7 13c1.5 0 2.8-1 3.8-3"/>
+          <path ${stroke} d="m13.4 12.2 4.8 4.8"/>
+          <circle cx="5.9" cy="15.5" r="1.05" fill="currentColor"/>
+          <circle cx="10.9" cy="11.5" r="1.05" fill="currentColor"/>
+        `,
+        noteAdded: `
+          <path ${stroke} d="M8.2 4.8H14l4 4v10.3A2.9 2.9 0 0 1 15.1 22H8.9A2.9 2.9 0 0 1 6 19.1V7.7A2.9 2.9 0 0 1 8.2 4.8Z"/>
+          <path ${stroke} d="M14 4.8V9h4"/>
+          <path ${stroke} d="M11.8 12.8v5.2"/>
+          <path ${stroke} d="M9.2 15.4h5.2"/>
+        `,
+        reflectionCompleted: `
+          <circle ${stroke} cx="10.5" cy="12" r="6.5"/>
+          <path ${stroke} d="M7.4 14.8c1.1-.8 2.1-1.2 3.1-1.2 1 0 2 .4 3.1 1.2"/>
+          <circle cx="10.5" cy="10" r="1.05" fill="currentColor"/>
+          <path ${stroke} d="m15.5 15.3 1.7 1.7 2.8-2.8"/>
+        `,
+        noDataYet: `
+          <path ${stroke} d="M5 18.8V8.7"/>
+          <path ${stroke} d="M5 18.8h14"/>
+          <path ${stroke} d="M9 13.8h6"/>
+          <circle cx="17.5" cy="7" r="1.1" fill="currentColor"/>
+        `,
+        noNotesYet: `
+          <path ${stroke} d="M8.2 4.8H14l4 4v10.3A2.9 2.9 0 0 1 15.1 22H8.9A2.9 2.9 0 0 1 6 19.1V7.7A2.9 2.9 0 0 1 8.2 4.8Z"/>
+          <path ${stroke} d="M14 4.8V9h4"/>
+          <path ${stroke} d="M9.2 13h5.8"/>
+          <path ${stroke} d="M9.2 16.2h3.8"/>
+        `,
+        noHabitsYet: `
+          <path ${stroke} d="M17.5 8.5A6.2 6.2 0 0 0 7.3 6.4"/>
+          <path ${stroke} d="M17.5 8.5V5.7"/>
+          <path ${stroke} d="M17.5 8.5h-2.8"/>
+          <path ${stroke} d="M7.7 15.7a6.2 6.2 0 0 0 6.1 2"/>
+          <path ${stroke} d="M14.8 14.8v5"/>
+          <path ${stroke} d="M12.3 17.3h5"/>
+        `,
+        noTransactionsYet: `
+          <rect ${stroke} x="4.7" y="6" width="14.6" height="12" rx="3.5"/>
+          <path ${stroke} d="M8 10.2h8"/>
+          <path ${stroke} d="M8 14.2h8"/>
+        `,
+        coachInsight: `
+          <circle ${stroke} cx="16.8" cy="7" r="2.2"/>
+          <path ${stroke} d="M6 18c2.1-3.4 4.4-5.8 7.2-7.1"/>
+          <path ${stroke} d="M10.5 18H6v-4.5"/>
+          <path ${stroke} d="M18.2 3.5v1.8"/>
+          <path ${stroke} d="M17.3 4.4h1.8"/>
+        `,
+        reminder: `
+          <path ${stroke} d="M9 17v-4.4A3 3 0 0 1 12 9a3 3 0 0 1 3 3.6V17"/>
+          <path ${stroke} d="M7 17h10"/>
+          <path ${stroke} d="M10.5 19a1.5 1.5 0 0 0 3 0"/>
+          <circle ${stroke} cx="18.2" cy="7.8" r="2.2"/>
+          <path ${stroke} d="M18.2 6.6v1.3l.8.6"/>
+        `,
+        success: `
+          <circle ${stroke} cx="12" cy="12" r="8"/>
+          <path ${stroke} d="m8.6 12.2 2.3 2.4 4.7-4.8"/>
+        `,
+        warning: `
+          <path ${stroke} d="M12 5.5 19 18a1.2 1.2 0 0 1-1.1 1.8H6.1A1.2 1.2 0 0 1 5 18Z"/>
+          <path ${stroke} d="M12 10v4.6"/>
+          <circle cx="12" cy="17.2" r="1" fill="currentColor"/>
+        `,
+        error: `
+          <circle ${stroke} cx="12" cy="12" r="8"/>
+          <path ${stroke} d="m9.2 9.2 5.6 5.6"/>
+          <path ${stroke} d="m14.8 9.2-5.6 5.6"/>
+        `,
+        offline: `
+          <path ${stroke} d="M7.2 16.8A4.8 4.8 0 0 1 8 8a5.5 5.5 0 0 1 10.4 2.5A4 4 0 0 1 17.5 18H9"/>
+          <path ${stroke} d="m5.2 5.2 13.6 13.6"/>
+        `,
+        syncUpdate: `
+          <path ${stroke} d="M7.8 9.2A5.7 5.7 0 0 1 17.3 8"/>
+          <path ${stroke} d="M17.3 8V4.8"/>
+          <path ${stroke} d="M17.3 8H14"/>
+          <path ${stroke} d="M16.2 14.8A5.7 5.7 0 0 1 6.7 16"/>
+          <path ${stroke} d="M6.7 16v3.2"/>
+          <path ${stroke} d="M6.7 16H10"/>
+        `,
+        archiveHistory: `
+          <path ${stroke} d="M6 7.5h12l1 3H5Z"/>
+          <path ${stroke} d="M7.4 10.5v6.8A1.7 1.7 0 0 0 9.1 19h5.1a1.7 1.7 0 0 0 1.7-1.7v-6.8"/>
+          <circle ${stroke} cx="16.8" cy="8.1" r="2.1"/>
+          <path ${stroke} d="M16.8 7v1.2l.8.6"/>
+        `
+      };
+
+      const coreIcons = [
+        { key: 'habit', label: 'Habit', meta: 'Looped discipline' },
+        { key: 'task', label: 'Task', meta: 'Structured execution' },
+        { key: 'note', label: 'Note', meta: 'Capture and journal' },
+        { key: 'reflection', label: 'Reflection', meta: 'Pause and review' },
+        { key: 'coach', label: 'Coach', meta: 'Guided direction' },
+        { key: 'bibleVerse', label: 'Bible Verse', meta: 'Wisdom and anchor' },
+        { key: 'analytics', label: 'Analytics', meta: 'Pattern visibility' },
+        { key: 'progress', label: 'Progress', meta: 'Forward movement' },
+        { key: 'streak', label: 'Streak', meta: 'Unbroken momentum' },
+        { key: 'dailyReview', label: 'Daily Review', meta: 'Immediate check-in' },
+        { key: 'weeklyReview', label: 'Weekly Review', meta: 'Seven-day reflection' },
+        { key: 'monthlyReview', label: 'Monthly Review', meta: 'Four-week sweep' },
+        { key: 'yearlyReview', label: 'Yearly Review', meta: 'Quartered annual view' },
+        { key: 'finance', label: 'Finance', meta: 'Calm money system' },
+        { key: 'income', label: 'Income', meta: 'Measured inflow' },
+        { key: 'expense', label: 'Expense', meta: 'Controlled outflow' },
+        { key: 'transfer', label: 'Transfer', meta: 'Bucket-to-bucket movement' },
+        { key: 'transaction', label: 'Transaction', meta: 'Logged money event' },
+        { key: 'settings', label: 'Settings', meta: 'Control and tuning' },
+        { key: 'notifications', label: 'Notifications', meta: 'Reminders and nudges' },
+        { key: 'profile', label: 'Profile', meta: 'Personal identity' }
+      ];
+
+      const categoryIcons = [
+        { key: 'gym', label: 'Gym', meta: 'Disciplined strength' },
+        { key: 'school', label: 'School', meta: 'Structured learning' },
+        { key: 'personalProjects', label: 'Personal Projects', meta: 'Building systems' },
+        { key: 'wellbeing', label: 'Wellbeing', meta: 'Calm health signal' },
+        { key: 'lifeAdmin', label: 'Life Admin', meta: 'Maintenance and planning' },
+        { key: 'faithSpiritual', label: 'Faith / Spiritual', meta: 'Grounding and guidance' },
+        { key: 'finance', label: 'Finance', meta: 'Ledger and value movement' }
+      ];
+
+      const stateIcons = [
+        { key: 'completedDay', label: 'Completed Day', meta: 'Closed with intention' },
+        { key: 'incompleteDay', label: 'Incomplete Day', meta: 'Still open' },
+        { key: 'milestoneReached', label: 'Milestone Reached', meta: 'Meaningful threshold' },
+        { key: 'streakMaintained', label: 'Streak Maintained', meta: 'Continuity preserved' },
+        { key: 'streakBroken', label: 'Streak Broken', meta: 'Continuity interrupted' },
+        { key: 'noteAdded', label: 'Note Added', meta: 'New capture recorded' },
+        { key: 'reflectionCompleted', label: 'Reflection Completed', meta: 'Review logged' },
+        { key: 'noDataYet', label: 'No Data Yet', meta: 'Awaiting signal' },
+        { key: 'noNotesYet', label: 'No Notes Yet', meta: 'Journal empty' },
+        { key: 'noHabitsYet', label: 'No Habits Yet', meta: 'No routines started' },
+        { key: 'noTransactionsYet', label: 'No Transactions Yet', meta: 'Ledger is blank' },
+        { key: 'coachInsight', label: 'Coach Insight', meta: 'Guidance surfaced' },
+        { key: 'reminder', label: 'Reminder', meta: 'Time-based nudge' },
+        { key: 'success', label: 'Success', meta: 'Action confirmed' },
+        { key: 'warning', label: 'Warning', meta: 'Needs attention' },
+        { key: 'error', label: 'Error', meta: 'Something failed' },
+        { key: 'offline', label: 'Offline', meta: 'Disconnected mode' },
+        { key: 'syncUpdate', label: 'Sync / Update', meta: 'State refreshing' },
+        { key: 'archiveHistory', label: 'Archive / History', meta: 'Stored and reviewable' }
+      ];
+
+      function svg(key, classes = 'icon') {
+        return `<svg class="${classes}" viewBox="0 0 24 24" aria-hidden="true">${icons[key]}</svg>`;
+      }
+
+      function scalePreview(key) {
+        return `
+          <div class="scale-preview">
+            ${svg(key, 'icon s16')}
+            ${svg(key, 'icon s20')}
+            ${svg(key, 'icon s24')}
+          </div>
+        `;
+      }
+
+      function iconCard(item, tint = false) {
+        return `
+          <article class="icon-card">
+            <div class="icon-variants">
+              <div class="icon-variant">
+                <div class="icon-tone-label">Light</div>
+                <div class="icon-stage${tint ? ' tint' : ''}">
+                  ${svg(item.key)}
+                </div>
+              </div>
+              <div class="icon-variant">
+                <div class="icon-tone-label">Dark</div>
+                <div class="icon-stage dark${tint ? ' tint' : ''}">
+                  ${svg(item.key)}
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="icon-label">${item.label}</div>
+              <div class="icon-meta">${item.meta}</div>
+            </div>
+            <div class="scale-row">
+              ${scalePreview(item.key)}
+              <div class="scale-pill">16 / 20 / 24</div>
+            </div>
+          </article>
+        `;
+      }
+
+      const brandSymbol = `
+        <svg class="brand-symbol large" viewBox="0 0 88 92" aria-hidden="true">
+          <circle cx="44" cy="31" r="21.5" fill="none" stroke="currentColor" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="m34.4 30.6 8 8.1 14.8-15.4" fill="none" stroke="currentColor" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="42.5" cy="39.2" r="3.8" fill="currentColor"/>
+          <rect x="26.5" y="57" width="35" height="18.5" rx="8.5" fill="none" stroke="currentColor" stroke-width="3.2" stroke-opacity="0.6"/>
+          <text x="44" y="70.3" text-anchor="middle" font-size="15" font-weight="760" fill="currentColor" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif">1</text>
+        </svg>
+      `;
+
+      const simplifiedBrandSymbol = `
+        <svg class="brand-symbol large" viewBox="0 0 80 80" aria-hidden="true">
+          <circle cx="40" cy="40" r="21.5" fill="none" stroke="currentColor" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="m30.5 39.4 8 8.1 14.8-15.4" fill="none" stroke="currentColor" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="38.6" cy="48.2" r="3.8" fill="currentColor"/>
+        </svg>
+      `;
+      document.querySelector('#brand-dark-symbol').innerHTML = brandSymbol;
+      document.querySelector('#brand-simple-symbol').innerHTML = simplifiedBrandSymbol;
+      document.querySelector('#brand-mono-symbol').innerHTML = brandSymbol;
+      document.querySelector('#brand-light-symbol').innerHTML = simplifiedBrandSymbol;
+
+      document.querySelector('#core-grid').innerHTML = coreIcons.map((item, index) => iconCard(item, index < 7)).join('');
+      document.querySelector('#category-grid').innerHTML = categoryIcons.map((item, index) => iconCard(item, index % 2 === 0)).join('');
+      document.querySelector('#state-grid').innerHTML = stateIcons.map((item, index) => iconCard(item, index % 3 === 0)).join('');
+    </script>
+  </body>
+</html>

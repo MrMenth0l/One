@@ -61,7 +61,7 @@ class CategoryRepository:
         )
         return self.db.execute(stmt).scalar_one_or_none()
 
-    def create(self, user_id: str, *, name: str, icon: str = "circle", color: str = "#5B8DEF") -> models.CategoryModel:
+    def create(self, user_id: str, *, name: str, icon: str = "category.generic", color: str = "#5B8DEF") -> models.CategoryModel:
         current = self.list_for_user(user_id)
         row = models.CategoryModel(
             id=str(uuid4()),
@@ -86,7 +86,7 @@ class CategoryRepository:
                 id=str(uuid4()),
                 user_id=user_id,
                 name=name,
-                icon=DEFAULT_CATEGORY_ICONS.get(name, "circle"),
+                icon=DEFAULT_CATEGORY_ICONS.get(name, "category.generic"),
                 sort_order=index,
                 is_default=True,
             )

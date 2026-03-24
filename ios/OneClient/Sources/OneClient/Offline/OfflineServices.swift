@@ -165,20 +165,7 @@ struct LocalOnboardingService {
     }
 
     private static func defaultCategoryIcon(for name: String) -> String {
-        switch name {
-        case "Gym":
-            return "🏋️"
-        case "School":
-            return "🎓"
-        case "Personal Projects":
-            return "💡"
-        case "Wellbeing":
-            return "🌿"
-        case "Life Admin":
-            return "🧾"
-        default:
-            return "circle"
-        }
+        OneIconKey.defaultTaskCategory(for: name).rawValue
     }
 }
 
