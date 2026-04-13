@@ -101,6 +101,33 @@ public enum PriorityTier: String, Codable, Sendable, CaseIterable, Hashable {
     }
 }
 
+public enum TodayProminence: String, Codable, Sendable {
+    case compact
+    case standard
+    case featured
+}
+
+public enum TodaySurfaceZone: String, Codable, Sendable {
+    case flow
+    case quiet
+    case hidden
+}
+
+public enum TodayUrgency: String, Codable, Sendable {
+    case none
+    case soon
+    case dueToday = "due_today"
+    case overdue
+}
+
+public enum TodayTimeBucket: String, Codable, Sendable {
+    case anytime
+    case morning
+    case midday
+    case evening
+    case late
+}
+
 public struct User: Codable, Sendable, Equatable, Identifiable {
     public let id: String
     public let email: String
@@ -229,6 +256,14 @@ public struct TodayItem: Codable, Sendable, Equatable, Identifiable {
     public let priority: Int?
     public let dueAt: Date?
     public let preferredTime: String?
+    public let blendedScore: Double
+    public let prominence: TodayProminence
+    public let surfaceZone: TodaySurfaceZone
+    public let urgency: TodayUrgency
+    public let timeBucket: TodayTimeBucket
+    public let clusterKey: String
+    public let learningConfidence: Double
+    public let manualBoost: Double
 
     public var id: String { "\(itemType.rawValue):\(itemId)" }
 
@@ -244,7 +279,15 @@ public struct TodayItem: Codable, Sendable, Equatable, Identifiable {
         isPinned: Bool? = nil,
         priority: Int? = nil,
         dueAt: Date? = nil,
-        preferredTime: String? = nil
+        preferredTime: String? = nil,
+        blendedScore: Double = 0,
+        prominence: TodayProminence = .standard,
+        surfaceZone: TodaySurfaceZone = .flow,
+        urgency: TodayUrgency = .none,
+        timeBucket: TodayTimeBucket = .anytime,
+        clusterKey: String = "",
+        learningConfidence: Double = 0,
+        manualBoost: Double = 0
     ) {
         self.itemType = itemType
         self.itemId = itemId
@@ -258,6 +301,62 @@ public struct TodayItem: Codable, Sendable, Equatable, Identifiable {
         self.priority = priority
         self.dueAt = dueAt
         self.preferredTime = preferredTime
+        self.blendedScore = blendedScore
+        self.prominence = prominence
+        self.surfaceZone = surfaceZone
+        self.urgency = urgency
+        self.timeBucket = timeBucket
+        self.clusterKey = clusterKey
+        self.learningConfidence = learningConfidence
+        self.manualBoost = manualBoost
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case itemType
+        case itemId
+        case title
+        case categoryId
+        case completed
+        case sortBucket
+        case sortScore
+        case subtitle
+        case isPinned
+        case priority
+        case dueAt
+        case preferredTime
+        case blendedScore = "blended_score"
+        case prominence
+        case surfaceZone = "surface_zone"
+        case urgency
+        case timeBucket = "time_bucket"
+        case clusterKey = "cluster_key"
+        case learningConfidence = "learning_confidence"
+        case manualBoost = "manual_boost"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        itemType = try container.decode(ItemType.self, forKey: .itemType)
+        itemId = try container.decode(String.self, forKey: .itemId)
+        title = try container.decode(String.self, forKey: .title)
+        categoryId = try container.decode(String.self, forKey: .categoryId)
+        completed = try container.decode(Bool.self, forKey: .completed)
+        sortBucket = try container.decode(Int.self, forKey: .sortBucket)
+        sortScore = try container.decode(Double.self, forKey: .sortScore)
+        subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle)
+        isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned)
+        priority = try container.decodeIfPresent(Int.self, forKey: .priority)
+        dueAt = try container.decodeIfPresent(Date.self, forKey: .dueAt)
+        preferredTime = try container.decodeIfPresent(String.self, forKey: .preferredTime)
+        blendedScore = try container.decodeIfPresent(Double.self, forKey: .blendedScore) ?? 0
+        prominence = try container.decodeIfPresent(TodayProminence.self, forKey: .prominence) ?? .standard
+        surfaceZone = try container.decodeIfPresent(TodaySurfaceZone.self, forKey: .surfaceZone) ?? .flow
+        urgency = try container.decodeIfPresent(TodayUrgency.self, forKey: .urgency) ?? .none
+        timeBucket = try container.decodeIfPresent(TodayTimeBucket.self, forKey: .timeBucket) ?? .anytime
+        clusterKey = try container.decodeIfPresent(String.self, forKey: .clusterKey) ?? ""
+        learningConfidence = try container.decodeIfPresent(Double.self, forKey: .learningConfidence) ?? 0
+        manualBoost = try container.decodeIfPresent(Double.self, forKey: .manualBoost) ?? 0
     }
 
     public var priorityTier: PriorityTier {
@@ -278,6 +377,32 @@ public struct TodayResponse: Codable, Sendable, Equatable {
         self.completedCount = completedCount
         self.totalCount = totalCount
         self.completionRatio = completionRatio
+    }
+}
+
+extension Array where Element == TodayItem {
+    fileprivate func deduplicatedTodayItems() -> [TodayItem] {
+        var seen: Set<String> = []
+        var result: [TodayItem] = []
+        result.reserveCapacity(count)
+        for item in self where seen.insert(item.id).inserted {
+            result.append(item)
+        }
+        return result
+    }
+}
+
+extension TodayResponse {
+    func normalized() -> TodayResponse {
+        let normalizedItems = items.deduplicatedTodayItems()
+        let completed = normalizedItems.filter(\.completed).count
+        return TodayResponse(
+            dateLocal: dateLocal,
+            items: normalizedItems,
+            completedCount: completed,
+            totalCount: normalizedItems.count,
+            completionRatio: normalizedItems.isEmpty ? 0 : Double(completed) / Double(normalizedItems.count)
+        )
     }
 }
 

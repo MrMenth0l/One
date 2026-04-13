@@ -40,10 +40,10 @@ public enum OneTheme {
                 surfaceMuted: Color(hex: 0x12161D),
                 surfaceStrong: Color(hex: 0x202734),
                 glass: Color(hex: 0x18202A, alpha: 0.98),
-                glassStroke: Color.white.opacity(0.05),
-                border: Color.white.opacity(0.08),
-                text: Color(hex: 0xF3F5F8),
-                subtext: Color(hex: 0xA2ADBC),
+                glassStroke: Color.white.opacity(0.06),
+                border: Color.white.opacity(0.09),
+                text: Color(hex: 0xF5F7FA),
+                subtext: Color(hex: 0xAAB6C6),
                 accent: Color(hex: 0x7A9DBA),
                 accentSoft: Color(hex: 0x7A9DBA, alpha: 0.16),
                 success: Color(hex: 0x6EB082),
@@ -51,7 +51,7 @@ public enum OneTheme {
                 warning: Color(hex: 0xD1A86A),
                 highlight: Color(hex: 0xC08A56),
                 symbol: Color(hex: 0xD5DEE8),
-                shadowColor: Color.black.opacity(0.16)
+                shadowColor: Color.black.opacity(0.13)
             )
         default:
             return Palette(
@@ -62,18 +62,18 @@ public enum OneTheme {
                 surfaceMuted: Color(hex: 0xF5F7FA),
                 surfaceStrong: Color(hex: 0xE9EDF3),
                 glass: Color.white.opacity(0.98),
-                glassStroke: Color(hex: 0x111827, alpha: 0.04),
-                border: Color(hex: 0x111827, alpha: 0.07),
-                text: Color(hex: 0x151B24),
-                subtext: Color(hex: 0x677486),
-                accent: Color(hex: 0x4D6F8C),
-                accentSoft: Color(hex: 0x4D6F8C, alpha: 0.12),
+                glassStroke: Color(hex: 0x111827, alpha: 0.05),
+                border: Color(hex: 0x111827, alpha: 0.08),
+                text: Color(hex: 0x11161F),
+                subtext: Color(hex: 0x5F6D7E),
+                accent: Color(hex: 0x48697F),
+                accentSoft: Color(hex: 0x48697F, alpha: 0.12),
                 success: Color(hex: 0x4D8A62),
                 danger: Color(hex: 0xC0675A),
                 warning: Color(hex: 0xBB8B4B),
                 highlight: Color(hex: 0xAF7440),
                 symbol: Color(hex: 0x465466),
-                shadowColor: Color.black.opacity(0.04)
+                shadowColor: Color.black.opacity(0.03)
             )
         }
     }
@@ -152,7 +152,7 @@ struct OneScreenBackground: View {
             Rectangle()
                 .fill(palette.accentSoft.opacity(palette.isDark ? 0.2 : 0.1))
                 .frame(height: 132)
-                .blur(radius: 34)
+                .blur(radius: 28)
                 .offset(y: -72)
         }
         .ignoresSafeArea()
@@ -245,16 +245,16 @@ struct OneGlassCard<Content: View>: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: OneTheme.radiusLarge, style: .continuous)
-                .stroke(palette.accentSoft.opacity(palette.isDark ? 0.44 : 0.72), lineWidth: 1)
+                .stroke(palette.accentSoft.opacity(palette.isDark ? 0.36 : 0.58), lineWidth: 1)
         )
         .overlay(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: OneTheme.radiusSmall, style: .continuous)
-                .fill(palette.accent.opacity(palette.isDark ? 0.85 : 0.7))
-                .frame(width: 68, height: 4)
+                .fill(palette.accent.opacity(palette.isDark ? 0.82 : 0.68))
+                .frame(width: 60, height: 3)
                 .padding(.leading, padding)
                 .padding(.top, 10)
         }
-        .shadow(color: palette.shadowColor, radius: 8, x: 0, y: 4)
+        .shadow(color: palette.shadowColor, radius: 6, x: 0, y: 3)
     }
 }
 
@@ -286,7 +286,7 @@ struct OneSurfaceCard<Content: View>: View {
             RoundedRectangle(cornerRadius: OneTheme.radiusLarge, style: .continuous)
                 .stroke(palette.border, lineWidth: 1)
         )
-        .shadow(color: palette.shadowColor, radius: 3, x: 0, y: 1)
+        .shadow(color: palette.shadowColor.opacity(palette.isDark ? 0.85 : 1), radius: 4, x: 0, y: 2)
     }
 }
 
@@ -674,10 +674,12 @@ struct PriorityTierSelector: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             Spacer()
                             if selection == tier {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .foregroundStyle(priorityTierColor(for: tier, palette: palette))
-                                    .padding(.top, 2)
+                                OneAppIcon(
+                                    key: .ui(.completed),
+                                    size: 17,
+                                    tint: priorityTierColor(for: tier, palette: palette)
+                                )
+                                .padding(.top, 2)
                             }
                         }
                         .padding(.horizontal, 12)
@@ -745,9 +747,11 @@ struct OneSettingsRow: View {
                     .font(OneType.label)
                     .foregroundStyle(palette.subtext)
             } else {
-                Image(systemName: "chevron.right")
-                    .font(OneType.label)
-                    .foregroundStyle(palette.subtext)
+                OneAppIcon(
+                    key: .ui(.disclosureRight),
+                    size: 14,
+                    tint: palette.subtext
+                )
             }
         }
     }

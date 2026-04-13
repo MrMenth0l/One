@@ -1,7 +1,7 @@
-from datetime import date, datetime, time
+from datetime import UTC, date, datetime, time
 import unittest
 
-from one.models import CompletionState, Habit, ItemType, Todo, TodoStatus
+from one.models import CompletionLog, CompletionState, Habit, ItemType, Todo, TodoStatus
 from one.tracking import (
     build_today_items,
     materialize_habit_logs,
@@ -34,7 +34,7 @@ class TrackingTests(unittest.TestCase):
         self.assertEqual(logs[0].item_type, ItemType.HABIT)
         self.assertEqual(logs[0].state, CompletionState.NOT_COMPLETED)
 
-    def test_today_ordering_respects_locked_priority_buckets(self) -> None:
+    def test_due_today_ranks_ahead_of_pinned_without_manual_override(self) -> None:
         target = date(2026, 3, 11)
         habit = Habit(
             id="h1",
@@ -78,7 +78,62 @@ class TrackingTests(unittest.TestCase):
             completion_logs=[],
         )
 
-        self.assertEqual([i.item_id for i in items], ["t1", "t2", "h1", "t3"])
+        self.assertEqual([i.item_id for i in items], ["t2", "t1", "h1", "t3"])
+
+    def test_time_learning_waits_for_repeated_history_before_rebucketing(self) -> None:
+        target = date(2026, 3, 11)
+        habit = Habit(
+            id="h1",
+            user_id="u1",
+            category_id="c-gym",
+            title="Workout",
+            recurrence_rule="DAILY",
+            start_date=date(2026, 1, 1),
+            preferred_time=time(7, 0),
+        )
+
+        logs = [
+            CompletionLog(
+                id=f"log-{index}",
+                user_id="u1",
+                item_type=ItemType.HABIT,
+                item_id="h1",
+                date_local=date(2026, 3, 1 + index),
+                state=CompletionState.COMPLETED,
+                completed_at=datetime(2026, 3, 2 + index, 2, 0, tzinfo=UTC),
+            )
+            for index in range(4)
+        ]
+
+        items = build_today_items(
+            today=target,
+            timezone="America/Guatemala",
+            habits=[habit],
+            todos=[],
+            completion_logs=logs,
+        )
+        self.assertEqual(items[0].time_bucket, "morning")
+
+        logs.append(
+            CompletionLog(
+                id="log-5",
+                user_id="u1",
+                item_type=ItemType.HABIT,
+                item_id="h1",
+                date_local=date(2026, 3, 5),
+                state=CompletionState.COMPLETED,
+                completed_at=datetime(2026, 3, 6, 2, 0, tzinfo=UTC),
+            )
+        )
+
+        items = build_today_items(
+            today=target,
+            timezone="America/Guatemala",
+            habits=[habit],
+            todos=[],
+            completion_logs=logs,
+        )
+        self.assertEqual(items[0].time_bucket, "evening")
 
     def test_habit_completion_updates_today_ratio(self) -> None:
         target = date(2026, 3, 11)
@@ -139,7 +194,7 @@ class TrackingTests(unittest.TestCase):
         self.assertEqual(len(items), 1)
         self.assertTrue(items[0].completed)
         self.assertEqual(items[0].item_type, ItemType.TODO)
-        self.assertIn("completed", items[0].subtitle or "")
+        self.assertIn("completed", (items[0].subtitle or "").lower())
 
     def test_same_priority_remaining_todos_show_newest_first(self) -> None:
         target = date(2026, 3, 11)

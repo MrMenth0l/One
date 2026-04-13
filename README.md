@@ -1,140 +1,239 @@
-# One (Vertical Slice Foundation)
+# One
 
-This repository now includes a runnable vertical slice for **One**:
-- `FastAPI + SQLAlchemy + Alembic` backend with PostgreSQL-ready schema/migrations.
-- Additive `GET /today` API and server-defined tracking/analytics logic.
-- Swift client package with a live HTTP API client, session persistence, local reminder scheduling, and a generated iOS app project for device deployment.
+One is a personal operating system for daily execution: habits, tasks, reflections, analytics, reminders, and lightweight finance tracking in a single product surface.
 
-## What is implemented
+This repository contains:
 
-- Domain entities for users, habits, todos, categories, completion logs, reflections, reminders, coach cards, and preferences.
-- Core tracking logic:
-  - Habit recurrence evaluation (`DAILY`, `WEEKLY`, `MONTHLY`, `YEARLY` patterns)
-  - Daily habit log materialization (`not_completed` default)
-  - Binary completion toggles
-  - Today ordering model: pinned todos -> urgent todos -> scheduled habits -> remaining todos
-- Analytics logic:
-  - Daily summaries
-  - Weekly/monthly/yearly calendar rollups
-  - Habit streaks and daily action streak
-  - Contribution heatmap intensity generation
-- Reflection subsystem:
-  - Period prompts (daily/weekly/monthly/yearly)
-  - Upsert/list/search behavior
-- Notification subsystem:
-  - Quiet-hours filtering
-  - Due reminder evaluation
-  - Grouping of close reminders to reduce noise
-- Onboarding bootstrap:
-  - Default categories
-  - Initial user preferences bundle
-- Coaching content selection:
-  - Curated active card filtering by date/tags
-- API contract:
-  - OpenAPI spec at [`api/openapi.yaml`](/Users/yehosuahercules/Desktop/Misc./One./api/openapi.yaml)
-  - Additive `GET /today` endpoint with `TodayResponse`
-- Backend service:
-  - [`one_api/`](/Users/yehosuahercules/Desktop/Misc./One./one_api) with layered structure:
-    - routers -> services -> repositories -> domain logic (`one/`)
-- Migrations:
-  - Alembic config + initial migration under [`alembic/`](/Users/yehosuahercules/Desktop/Misc./One./alembic)
-- iOS client scaffold:
-  - Swift package at [`ios/OneClient/`](/Users/yehosuahercules/Desktop/Misc./One./ios/OneClient)
-  - `OneAppHost` executable target with SwiftUI auth gate + tabs (`Home`, `Today`, `Analytics`, `Profile`)
-  - `HTTPAPIClient` with typed wire DTO mapping and bearer-token session handling
-  - `KeychainAuthSessionStore` (with in-memory fallback)
-  - Local notification scheduling via `UNUserNotificationCenter` adapter (iOS)
-  - SwiftData-backed sync queue selection on iOS runtime (fallback to in-memory)
-  - `CoachSheet` and standalone notification preferences UI
-- iOS app project:
-  - Generated Xcode project at [`ios/OneApp/OneApp.xcodeproj`](/Users/yehosuahercules/Desktop/Misc./One./ios/OneApp/OneApp.xcodeproj)
-  - `Debug`/`Release` Info.plist split with Debug-only HTTP ATS allowance
-  - `OneAppTests` unit test target scaffold
+- A Python domain and API layer built with FastAPI, SQLAlchemy, and Alembic.
+- A native iOS client package with the shared app logic and UI system.
+- A generated Xcode project for running the iPhone app and unit tests.
 
-## Module map
+The current iOS app is designed to run local-first. The backend remains available for API development, schema evolution, and service-backed flows.
 
-- [`one/models.py`](/Users/yehosuahercules/Desktop/Misc./One./one/models.py): core entities and enums
-- [`one/tracking.py`](/Users/yehosuahercules/Desktop/Misc./One./one/tracking.py): recurrence, today list, completion state
-- [`one/analytics.py`](/Users/yehosuahercules/Desktop/Misc./One./one/analytics.py): rollups, streaks, heatmap
-- [`one/reflections.py`](/Users/yehosuahercules/Desktop/Misc./One./one/reflections.py): note prompts and CRUD-like helpers
-- [`one/notifications.py`](/Users/yehosuahercules/Desktop/Misc./One./one/notifications.py): reminder scheduling logic
-- [`one/bootstrap.py`](/Users/yehosuahercules/Desktop/Misc./One./one/bootstrap.py): onboarding defaults
-- [`one/coaching.py`](/Users/yehosuahercules/Desktop/Misc./One./one/coaching.py): curated coach card selection
-- [`one_api/main.py`](/Users/yehosuahercules/Desktop/Misc./One./one_api/main.py): FastAPI app entrypoint
-- [`one_api/services/today_service.py`](/Users/yehosuahercules/Desktop/Misc./One./one_api/services/today_service.py): server-defined Today ordering/materialization
-- [`ios/OneClient/Sources/OneClient/`](/Users/yehosuahercules/Desktop/Misc./One./ios/OneClient/Sources/OneClient): iOS module scaffold
+## Architecture
 
-## Run tests
+### Backend
+
+- `one/`: core domain logic for tracking, analytics, reflections, notifications, onboarding, and coaching.
+- `one_api/`: FastAPI application, routers, services, auth providers, persistence, and API schemas.
+- `alembic/`: database migrations.
+- `api/openapi.yaml`: API contract snapshot.
+
+### iOS
+
+- `ios/OneClient/`: Swift package that contains the app models, repositories, local persistence, networking, and UI features.
+- `ios/OneApp/`: XcodeGen project definition, generated Xcode project, app target, and unit tests.
+
+## Core Capabilities
+
+- Habit and to-do management with today-oriented planning.
+- Reflection periods for daily, weekly, monthly, and yearly reviews.
+- Analytics rollups, streaks, heatmaps, and period summaries.
+- Local notification scheduling for reminders.
+- Finance tracking with categories, recurring items, and reporting views.
+- WidgetKit Today queue and app-intent based quick entry flows.
+- Local onboarding defaults, category/icon systems, and design assets.
+
+## Tech Stack
+
+- Python 3.12
+- FastAPI
+- SQLAlchemy 2
+- Alembic
+- Pydantic Settings
+- Swift 6 package tooling for shared client code
+- SwiftUI + SwiftData on iOS
+- XcodeGen for project generation
+
+## Requirements
+
+- Python 3.12+
+- A virtual environment tool of your choice
+- Xcode 17+ for iOS development
+- XcodeGen if you want to regenerate the Xcode project from `ios/OneApp/project.yml`
+
+## Quick Start
+
+### 1. Create the Python environment
 
 ```bash
+python3.12 -m venv .venv
 . .venv/bin/activate
-python -m unittest discover -s tests -v
+pip install --upgrade pip
+pip install -e .
 ```
 
-## Run migrations
+### 2. Apply database migrations
+
+By default, the API uses the local SQLite database at `./one.db`.
 
 ```bash
 . .venv/bin/activate
 python -m alembic upgrade head
 ```
 
-## Run API locally
+### 3. Run the API
 
 ```bash
 . .venv/bin/activate
 uvicorn one_api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-## Build iOS client package
+Available local endpoints:
+
+- `GET /healthz`
+- `GET /metrics/snapshot`
+- OpenAPI docs at `/docs`
+
+## Configuration
+
+Settings are loaded from environment variables and optionally from `.env`.
+
+### Supported backend settings
+
+```env
+APP_NAME=One API
+ENVIRONMENT=development
+DATABASE_URL=sqlite+pysqlite:///./one.db
+
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+DEV_AUTH_SECRET=change-me-in-prod
+ACCESS_TOKEN_TTL_SECONDS=3600
+REFRESH_TOKEN_TTL_SECONDS=2592000
+```
+
+### Authentication modes
+
+- Default development mode uses the in-repo auth provider backed by `DEV_AUTH_SECRET`.
+- Supabase can be enabled by supplying the Supabase settings above.
+
+## iOS Development
+
+### Swift package commands
+
+Build the shared client package:
 
 ```bash
 cd ios/OneClient
 swift build
 ```
 
-## Run iOS package checks
+Run the package checks executable:
 
 ```bash
 cd ios/OneClient
 swift run OneClientChecks
 ```
 
-## Run app host target
+Run the app host executable:
 
 ```bash
 cd ios/OneClient
 swift run OneAppHost
 ```
 
-## Generate iOS Xcode project
+### Xcode project
+
+Open the existing project:
+
+- `ios/OneApp/OneApp.xcodeproj`
+
+If needed, regenerate it from XcodeGen:
 
 ```bash
 cd ios/OneApp
 xcodegen generate
 ```
 
-## iPhone 13 deployment preflight
+### Base URL behavior
 
-1. Install full Xcode from the App Store.
-2. Select full Xcode as active developer directory:
+- The app reads `ONE_API_BASE_URL` from its Info.plist configuration.
+- A debug override can be stored in-app under `one.debug.api_base_url_override`.
+- The current product direction is local-first, so many flows work without a live backend.
 
-```bash
-sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-xcodebuild -version
-```
+### Widgets and app shortcuts
 
-3. Ensure iPhone and Mac are on the same Wi-Fi network.
-4. Start backend on LAN-accessible host:
+- The iOS app now includes `OneWidgetsExtension` for a Today queue widget and quick-entry controls.
+- Shared routing between the app, widgets, and shortcuts is implemented with the `one://action/...` URL scheme.
+- The shared SwiftData store is app-group backed through `group.com.yehosuah.one.shared`.
+
+## Testing
+
+### Python tests
 
 ```bash
 . .venv/bin/activate
-uvicorn one_api.main:app --host 0.0.0.0 --port 8000
+python -m unittest discover -s tests -v
 ```
 
-5. In the app, set `Profile -> Debug API URL` to `http://<your-mac-lan-ip>:8000`.
-6. Open `ios/OneApp/OneApp.xcodeproj` in Xcode, choose your Personal Team, connect iPhone 13, and run `OneApp`.
+### iOS tests
 
-## iOS base URL configuration
+From Xcode, run the `OneApp` scheme and its `OneAppTests` target.
 
-- Default base URL comes from app Info.plist (`ONE_API_BASE_URL`).
-- Debug override is stored under `one.debug.api_base_url_override` and can be set from Profile -> Debug API URL.
+From the command line, an example invocation is:
+
+```bash
+xcodebuild test \
+  -project ios/OneApp/OneApp.xcodeproj \
+  -scheme OneApp \
+  -destination 'platform=iOS Simulator,OS=26.3.1,name=iPhone 17' \
+  -derivedDataPath .deriveddata/OneAppTests \
+  CODE_SIGNING_ALLOWED=NO
+```
+
+Use an installed simulator available on your machine if that exact destination differs.
+
+## Repository Map
+
+### Backend
+
+- `one/models.py`: shared domain entities and enums.
+- `one/tracking.py`: recurrence evaluation, materialization, and today ordering.
+- `one/analytics.py`: summaries, streaks, and contribution data.
+- `one/reflections.py`: reflection prompts and note helpers.
+- `one/notifications.py`: reminder scheduling logic.
+- `one/bootstrap.py`: onboarding defaults.
+- `one/coaching.py`: coach card selection.
+- `one_api/main.py`: FastAPI entrypoint.
+- `one_api/api/`: HTTP routers.
+- `one_api/services/`: service layer orchestration.
+- `one_api/db/`: SQLAlchemy models, mappers, repositories, and session setup.
+- `one_api/schemas.py`: request and response contracts.
+
+### iOS
+
+- `ios/OneClient/Sources/OneClient/Core/`: shared models, iconography, and core systems.
+- `ios/OneClient/Sources/OneClient/Features/`: SwiftUI app features and view models.
+- `ios/OneClient/Sources/OneClient/Offline/`: local-first persistence and services.
+- `ios/OneClient/Sources/OneClient/Repositories/`: repository layer and sync queue.
+- `ios/OneApp/OneApp/`: app entrypoint and platform assets.
+- `ios/OneApp/OneAppTests/`: unit test suite.
+
+## Design Assets
+
+The repository also includes working design references used during implementation:
+
+- `one-ios-design.html`
+- `one-iconography-system.html`
+- `logo.png`
+
+## Additional Docs
+
+- `docs/widgetkit-implementation-note.md`
+- `docs/emotional-tone.md`
+- `docs/analytics-parallelization-plan.md`
+
+## Icon Workflow
+
+- Raw SVG exports live under `ios/OneClient/Sources/OneClient/Resources/StreamlineExports/`.
+- The semantic-to-asset mapping lives in `ios/OneClient/Sources/OneClient/Resources/streamline-lucide-manifest.json`.
+- Rebuild the iOS asset catalog with `python3 tools/sync_streamline_icons.py`.
+
+## Notes
+
+- The repository ignores generated Xcode build output under `.deriveddata/`.
+- `one.db` is a local development database artifact.
+- The backend creates tables on startup as a development safety net, but migrations remain the correct source of truth.

@@ -390,13 +390,26 @@ struct LocalFinanceAnalyticsService {
             weekStart: weekStart,
             timezoneID: timezoneID
         )
+        let previousMonthBounds = shiftedBounds(
+            for: .month,
+            anchorDate: currentDateLocal,
+            offset: -1,
+            weekStart: weekStart,
+            timezoneID: timezoneID
+        )
         let weekTransactions = filter(transactions: transactions, startDate: weekBounds.startDate, endDate: weekBounds.endDate, timezoneID: timezoneID)
         let monthTransactions = filter(transactions: transactions, startDate: monthBounds.startDate, endDate: monthBounds.endDate, timezoneID: timezoneID)
+        let previousMonthTransactions = filter(
+            transactions: transactions,
+            startDate: previousMonthBounds.startDate,
+            endDate: previousMonthBounds.endDate,
+            timezoneID: timezoneID
+        )
         let todayTransactions = transactions
             .filter { FinanceDateCoding.localDateString(from: $0.occurredAt, timezoneID: timezoneID) == currentDateLocal }
             .sorted { $0.occurredAt > $1.occurredAt }
         let categoryBreakdown = topCategories(
-            from: weekTransactions,
+            from: monthTransactions,
             categories: categories,
             limit: 4
         )
@@ -412,6 +425,7 @@ struct LocalFinanceAnalyticsService {
             monthSpent: monthSpent,
             timezoneID: timezoneID
         )
+        let monthIncome = monthTransactions.reduce(0) { $0 + FinanceComputation.incomeAmount(for: $1) }
         let baseline = weeklyBaseline(
             transactions: transactions,
             currentWeekStart: weekBounds.startDate,
@@ -420,11 +434,12 @@ struct LocalFinanceAnalyticsService {
         )
         let paceComparisonBase = baseline > 0 ? baseline : (balanceState.weeklyPaceThreshold ?? 0)
         let weeklyPaceVsBaseline = paceComparisonBase > 0 ? weekSpent / paceComparisonBase : 0
-        let projectedRemainingSpend = max(projectedMonthSpend - monthSpent, 0)
-        let remainingProjection = balanceState.totalBalance - projectedRemainingSpend - upcomingRecurringWithinMonth(
+        let upcomingThisMonth = upcomingRecurringWithinMonth(
             currentDateLocal: currentDateLocal,
             recurringItems: recurringItems
         )
+        let projectedRemainingSpend = max(projectedMonthSpend - monthSpent, 0)
+        let remainingProjection = balanceState.totalBalance - projectedRemainingSpend - upcomingThisMonth
         let insightSummary = FinanceInsightSummary(
             weekSpent: weekSpent,
             weekIncome: weekIncome,
@@ -461,12 +476,124 @@ struct LocalFinanceAnalyticsService {
             categoryBreakdown: categoryBreakdown,
             monthlyRecurringTotal: monthlyRecurringTotal,
             yearlyRecurringTotal: yearlyRecurringTotal,
-            suggestedPaymentMethod: suggestedPaymentMethod(from: transactions)
+            suggestedPaymentMethod: suggestedPaymentMethod(from: transactions),
+            cashflowHealth: cashflowHealth(
+                balanceState: balanceState,
+                totalSpent: monthSpent,
+                totalIncome: monthIncome,
+                projectedSpend: projectedMonthSpend,
+                recurringCommitment: monthlyRecurringTotal,
+                upcomingRecurring: upcomingThisMonth,
+                weeklyPaceRatio: weeklyPaceVsBaseline,
+                recentDailySpend: recentExpenseAverage(
+                    transactions: transactions,
+                    anchorDate: currentDateLocal,
+                    days: 7,
+                    timezoneID: timezoneID
+                )
+            ),
+            safeToSpend: safeToSpendSummary(
+                balanceState: balanceState,
+                totalIncome: monthIncome,
+                totalSpent: monthSpent,
+                upcomingRecurring: upcomingThisMonth,
+                currentDateLocal: currentDateLocal,
+                recentDailySpend: recentExpenseAverage(
+                    transactions: transactions,
+                    anchorDate: currentDateLocal,
+                    days: 7,
+                    timezoneID: timezoneID
+                ),
+                timezoneID: timezoneID
+            ),
+            recurringPressure: recurringPressureSummary(
+                period: .month,
+                currentTransactions: monthTransactions,
+                previousTransactions: previousMonthTransactions,
+                recurringItems: recurringItems,
+                comparisonIncome: monthIncome,
+                previousIncome: previousMonthTransactions.reduce(0) { $0 + FinanceComputation.incomeAmount(for: $1) },
+                currentDateLocal: currentDateLocal
+            ),
+            spendingPattern: spendingPatternSummary(
+                period: .month,
+                currentTransactions: monthTransactions,
+                allTransactions: transactions,
+                currentDateLocal: currentDateLocal,
+                timezoneID: timezoneID
+            ),
+            attentionSignals: attentionSignals(
+                cashflowHealth: cashflowHealth(
+                    balanceState: balanceState,
+                    totalSpent: monthSpent,
+                    totalIncome: monthIncome,
+                    projectedSpend: projectedMonthSpend,
+                    recurringCommitment: monthlyRecurringTotal,
+                    upcomingRecurring: upcomingThisMonth,
+                    weeklyPaceRatio: weeklyPaceVsBaseline,
+                    recentDailySpend: recentExpenseAverage(
+                        transactions: transactions,
+                        anchorDate: currentDateLocal,
+                        days: 7,
+                        timezoneID: timezoneID
+                    )
+                ),
+                safeToSpend: safeToSpendSummary(
+                    balanceState: balanceState,
+                    totalIncome: monthIncome,
+                    totalSpent: monthSpent,
+                    upcomingRecurring: upcomingThisMonth,
+                    currentDateLocal: currentDateLocal,
+                    recentDailySpend: recentExpenseAverage(
+                        transactions: transactions,
+                        anchorDate: currentDateLocal,
+                        days: 7,
+                        timezoneID: timezoneID
+                    ),
+                    timezoneID: timezoneID
+                ),
+                recurringPressure: recurringPressureSummary(
+                    period: .month,
+                    currentTransactions: monthTransactions,
+                    previousTransactions: previousMonthTransactions,
+                    recurringItems: recurringItems,
+                    comparisonIncome: monthIncome,
+                    previousIncome: previousMonthTransactions.reduce(0) { $0 + FinanceComputation.incomeAmount(for: $1) },
+                    currentDateLocal: currentDateLocal
+                ),
+                spendingPattern: spendingPatternSummary(
+                    period: .month,
+                    currentTransactions: monthTransactions,
+                    allTransactions: transactions,
+                    currentDateLocal: currentDateLocal,
+                    timezoneID: timezoneID
+                ),
+                categoryDrift: categoryDrift(
+                    currentTransactions: monthTransactions,
+                    previousTransactions: previousMonthTransactions,
+                    categories: categories,
+                    totalSpent: monthSpent,
+                    period: .month
+                ),
+                unusualRecentSpending: unusualRecentSpending(
+                    transactions: transactions,
+                    currentDateLocal: currentDateLocal,
+                    timezoneID: timezoneID
+                )
+            ),
+            categoryDrift: categoryDrift(
+                currentTransactions: monthTransactions,
+                previousTransactions: previousMonthTransactions,
+                categories: categories,
+                totalSpent: monthSpent,
+                period: .month
+            )
         )
     }
 
     func analyticsSnapshot(
         period: FinanceAnalyticsPeriod,
+        balanceState: FinanceBalanceState,
         categories: [FinanceCategory],
         transactions: [FinanceTransaction],
         recurringItems: [RecurringFinanceTransaction],
@@ -480,10 +607,23 @@ struct LocalFinanceAnalyticsService {
             weekStart: weekStart,
             timezoneID: timezoneID
         )
+        let previousBounds = shiftedBounds(
+            for: period,
+            anchorDate: currentDateLocal,
+            offset: -1,
+            weekStart: weekStart,
+            timezoneID: timezoneID
+        )
         let periodTransactions = filter(
             transactions: transactions,
             startDate: bounds.startDate,
             endDate: bounds.endDate,
+            timezoneID: timezoneID
+        )
+        let previousTransactions = filter(
+            transactions: transactions,
+            startDate: previousBounds.startDate,
+            endDate: previousBounds.endDate,
             timezoneID: timezoneID
         )
         let totalSpent = periodTransactions.reduce(0) { $0 + FinanceComputation.expenseAmount(for: $1) }
@@ -507,6 +647,86 @@ struct LocalFinanceAnalyticsService {
         let recurringBurden = period == .year
             ? recurringService.yearlyTotal(for: recurringItems)
             : recurringService.monthlyTotal(for: recurringItems)
+        let monthBounds = FinanceDateCoding.bounds(
+            for: .month,
+            anchorDate: currentDateLocal,
+            weekStart: weekStart,
+            timezoneID: timezoneID
+        )
+        let monthTransactions = filter(
+            transactions: transactions,
+            startDate: monthBounds.startDate,
+            endDate: monthBounds.endDate,
+            timezoneID: timezoneID
+        )
+        let currentMonthIncome = monthTransactions.reduce(0) { $0 + FinanceComputation.incomeAmount(for: $1) }
+        let currentMonthSpent = monthTransactions.reduce(0) { $0 + FinanceComputation.expenseAmount(for: $1) }
+        let currentMonthProjected = projectedMonthSpend(
+            anchorDate: currentDateLocal,
+            monthSpent: currentMonthSpent,
+            timezoneID: timezoneID
+        )
+        let upcomingThisMonth = upcomingRecurringWithinMonth(
+            currentDateLocal: currentDateLocal,
+            recurringItems: recurringItems
+        )
+        let recentDailySpend = recentExpenseAverage(
+            transactions: transactions,
+            anchorDate: currentDateLocal,
+            days: 7,
+            timezoneID: timezoneID
+        )
+        let paceRatio = period == .week ? weeklyPaceRatio(
+            transactions: transactions,
+            currentDateLocal: currentDateLocal,
+            weekStart: weekStart,
+            timezoneID: timezoneID
+        ) : projectedPaceRatio(
+            currentTotal: projected ?? totalSpent,
+            previousTotal: previousTransactions.reduce(0) { $0 + FinanceComputation.expenseAmount(for: $1) }
+        )
+        let cashflow = cashflowHealth(
+            balanceState: balanceState,
+            totalSpent: period == .month ? currentMonthSpent : totalSpent,
+            totalIncome: period == .month ? currentMonthIncome : totalIncome,
+            projectedSpend: period == .month ? currentMonthProjected : projected,
+            recurringCommitment: recurringService.monthlyTotal(for: recurringItems),
+            upcomingRecurring: upcomingThisMonth,
+            weeklyPaceRatio: paceRatio,
+            recentDailySpend: recentDailySpend
+        )
+        let safeToSpend = safeToSpendSummary(
+            balanceState: balanceState,
+            totalIncome: currentMonthIncome,
+            totalSpent: currentMonthSpent,
+            upcomingRecurring: upcomingThisMonth,
+            currentDateLocal: currentDateLocal,
+            recentDailySpend: recentDailySpend,
+            timezoneID: timezoneID
+        )
+        let recurringPressure = recurringPressureSummary(
+            period: period,
+            currentTransactions: periodTransactions,
+            previousTransactions: previousTransactions,
+            recurringItems: recurringItems,
+            comparisonIncome: totalIncome,
+            previousIncome: previousTransactions.reduce(0) { $0 + FinanceComputation.incomeAmount(for: $1) },
+            currentDateLocal: currentDateLocal
+        )
+        let spendingPattern = spendingPatternSummary(
+            period: period,
+            currentTransactions: periodTransactions,
+            allTransactions: transactions,
+            currentDateLocal: currentDateLocal,
+            timezoneID: timezoneID
+        )
+        let drift = categoryDrift(
+            currentTransactions: periodTransactions,
+            previousTransactions: previousTransactions,
+            categories: categories,
+            totalSpent: totalSpent,
+            period: period
+        )
         return FinanceAnalyticsSnapshot(
             period: period,
             startDate: bounds.startDate,
@@ -524,7 +744,24 @@ struct LocalFinanceAnalyticsService {
             ),
             chartPoints: chartPoints,
             topCategories: topCategories,
-            comparisonPoints: comparisonPoints
+            comparisonPoints: comparisonPoints,
+            cashflowHealth: cashflow,
+            safeToSpend: safeToSpend,
+            recurringPressure: recurringPressure,
+            spendingPattern: spendingPattern,
+            attentionSignals: attentionSignals(
+                cashflowHealth: cashflow,
+                safeToSpend: safeToSpend,
+                recurringPressure: recurringPressure,
+                spendingPattern: spendingPattern,
+                categoryDrift: drift,
+                unusualRecentSpending: unusualRecentSpending(
+                    transactions: transactions,
+                    currentDateLocal: currentDateLocal,
+                    timezoneID: timezoneID
+                )
+            ),
+            categoryDrift: drift
         )
     }
 
@@ -540,6 +777,30 @@ struct LocalFinanceAnalyticsService {
             yearlyTotal: recurringService.yearlyTotal(for: recurringItems),
             upcomingCharges: recurringService.upcomingCharges(for: recurringItems)
         )
+    }
+
+    private func shiftedBounds(
+        for period: FinanceAnalyticsPeriod,
+        anchorDate: String,
+        offset: Int,
+        weekStart: Int,
+        timezoneID: String
+    ) -> (startDate: String, endDate: String) {
+        guard let anchor = FinanceDateCoding.date(from: anchorDate, timezoneID: timezoneID) else {
+            return FinanceDateCoding.bounds(for: period, anchorDate: anchorDate, weekStart: weekStart, timezoneID: timezoneID)
+        }
+        let localCalendar = FinanceDateCoding.calendar(timezoneID: timezoneID)
+        let shiftedDate: Date
+        switch period {
+        case .week:
+            shiftedDate = localCalendar.date(byAdding: .day, value: 7 * offset, to: anchor) ?? anchor
+        case .month:
+            shiftedDate = localCalendar.date(byAdding: .month, value: offset, to: anchor) ?? anchor
+        case .year:
+            shiftedDate = localCalendar.date(byAdding: .year, value: offset, to: anchor) ?? anchor
+        }
+        let shiftedAnchor = FinanceDateCoding.isoDateString(from: shiftedDate, timezoneID: timezoneID)
+        return FinanceDateCoding.bounds(for: period, anchorDate: shiftedAnchor, weekStart: weekStart, timezoneID: timezoneID)
     }
 
     private func filter(
@@ -582,10 +843,86 @@ struct LocalFinanceAnalyticsService {
             .map { $0 }
     }
 
+    private func categoryDrift(
+        currentTransactions: [FinanceTransaction],
+        previousTransactions: [FinanceTransaction],
+        categories: [FinanceCategory],
+        totalSpent: Double,
+        period: FinanceAnalyticsPeriod
+    ) -> [FinanceCategoryDrift] {
+        let currentTotals = categoryTotalsMap(from: currentTransactions, categories: categories)
+        let previousTotals = categoryTotalsMap(from: previousTransactions, categories: categories)
+        let categoryIDs = Set(currentTotals.keys).union(previousTotals.keys)
+        return categoryIDs.compactMap { categoryID in
+            let current = currentTotals[categoryID]
+            let previous = previousTotals[categoryID]
+            let currentAmount = current?.amount ?? 0
+            let previousAmount = previous?.amount ?? 0
+            let deltaAmount = currentAmount - previousAmount
+            guard currentAmount > 0.009 || previousAmount > 0.009 else {
+                return nil
+            }
+            let changeRatio = previousAmount > 0.009 ? currentAmount / previousAmount : nil
+            let share = totalSpent > 0 ? currentAmount / totalSpent : 0
+            let name = current?.categoryName ?? previous?.categoryName ?? "Uncategorized"
+            let message: String
+            if previousAmount <= 0.009 {
+                message = "\(name) is newly material in this \(period.title.lowercased()) view."
+            } else if let changeRatio, changeRatio >= 1.18 {
+                let percent = Int(((changeRatio - 1) * 100).rounded())
+                message = "\(name) is \(percent)% above the previous \(period.title.lowercased()) reference."
+            } else if let changeRatio, changeRatio <= 0.82 {
+                let percent = Int(((1 - changeRatio) * 100).rounded())
+                message = "\(name) eased by \(percent)% versus the previous \(period.title.lowercased()) reference."
+            } else {
+                message = "\(name) remains one of the dominant categories in this \(period.title.lowercased()) range."
+            }
+            return FinanceCategoryDrift(
+                categoryId: categoryID,
+                categoryName: name,
+                iconName: current?.iconName ?? previous?.iconName ?? "questionmark.circle",
+                currentAmount: currentAmount,
+                previousAmount: previousAmount,
+                deltaAmount: deltaAmount,
+                shareOfSpend: share,
+                changeRatio: changeRatio,
+                message: message
+            )
+        }
+        .sorted { lhs, rhs in
+            let lhsScore = lhs.currentAmount + max(lhs.deltaAmount, 0) + (lhs.shareOfSpend * 100)
+            let rhsScore = rhs.currentAmount + max(rhs.deltaAmount, 0) + (rhs.shareOfSpend * 100)
+            if lhsScore != rhsScore {
+                return lhsScore > rhsScore
+            }
+            return lhs.categoryName < rhs.categoryName
+        }
+    }
+
+    private func categoryTotalsMap(
+        from transactions: [FinanceTransaction],
+        categories: [FinanceCategory]
+    ) -> [String: FinanceCategoryTotal] {
+        Dictionary(
+            uniqueKeysWithValues: topCategories(
+                from: transactions,
+                categories: categories,
+                limit: max(categories.count + 5, 12)
+            ).map { ($0.categoryId, $0) }
+        )
+    }
+
     private func projectedMonthSpend(anchorDate: String, monthSpent: Double, timezoneID: String) -> Double {
         let elapsed = Double(max(FinanceDateCoding.daysElapsedInMonth(anchorDate: anchorDate, timezoneID: timezoneID), 1))
         let days = Double(max(FinanceDateCoding.daysInMonth(anchorDate: anchorDate, timezoneID: timezoneID), 1))
         return (monthSpent / elapsed) * days
+    }
+
+    private func projectedPaceRatio(currentTotal: Double, previousTotal: Double) -> Double {
+        guard previousTotal > 0.009 else {
+            return currentTotal > 0.009 ? 1 : 0
+        }
+        return currentTotal / previousTotal
     }
 
     private func weeklyBaseline(
@@ -618,6 +955,36 @@ struct LocalFinanceAnalyticsService {
         return priorTotals.reduce(0, +) / Double(priorTotals.count)
     }
 
+    private func weeklyPaceRatio(
+        transactions: [FinanceTransaction],
+        currentDateLocal: String,
+        weekStart: Int,
+        timezoneID: String
+    ) -> Double {
+        let weekBounds = FinanceDateCoding.bounds(
+            for: .week,
+            anchorDate: currentDateLocal,
+            weekStart: weekStart,
+            timezoneID: timezoneID
+        )
+        let weekSpent = filter(
+            transactions: transactions,
+            startDate: weekBounds.startDate,
+            endDate: weekBounds.endDate,
+            timezoneID: timezoneID
+        ).reduce(0) { $0 + FinanceComputation.expenseAmount(for: $1) }
+        let baseline = weeklyBaseline(
+            transactions: transactions,
+            currentWeekStart: weekBounds.startDate,
+            weekStart: weekStart,
+            timezoneID: timezoneID
+        )
+        guard baseline > 0.009 else {
+            return weekSpent > 0.009 ? 1 : 0
+        }
+        return weekSpent / baseline
+    }
+
     private func upcomingRecurringWithinMonth(
         currentDateLocal: String,
         recurringItems: [RecurringFinanceTransaction]
@@ -627,6 +994,428 @@ struct LocalFinanceAnalyticsService {
             .filter(\.isActive)
             .filter { $0.nextDueDate.hasPrefix(currentMonthPrefix) && $0.nextDueDate >= currentDateLocal }
             .reduce(0) { $0 + $1.amount }
+    }
+
+    private func recentExpenseAverage(
+        transactions: [FinanceTransaction],
+        anchorDate: String,
+        days: Int,
+        timezoneID: String
+    ) -> Double {
+        let localCalendar = FinanceDateCoding.calendar(timezoneID: timezoneID)
+        guard let anchor = FinanceDateCoding.date(from: anchorDate, timezoneID: timezoneID),
+              let start = localCalendar.date(byAdding: .day, value: -(days - 1), to: anchor) else {
+            return 0
+        }
+        let spent = filter(
+            transactions: transactions,
+            startDate: FinanceDateCoding.isoDateString(from: start, timezoneID: timezoneID),
+            endDate: anchorDate,
+            timezoneID: timezoneID
+        ).reduce(0) { partial, transaction in
+            partial + FinanceComputation.expenseAmount(for: transaction)
+        }
+        return spent / Double(max(days, 1))
+    }
+
+    private func reserveFloor(balanceState: FinanceBalanceState) -> Double {
+        let balancePercentFloor = max(balanceState.totalBalance * 0.12, 0)
+        let paceFloor = max((balanceState.weeklyPaceThreshold ?? 0) * 0.35, 0)
+        return max(balanceState.lowBalanceThreshold ?? 0, max(balancePercentFloor, paceFloor))
+    }
+
+    private func cashflowHealth(
+        balanceState: FinanceBalanceState,
+        totalSpent: Double,
+        totalIncome: Double,
+        projectedSpend: Double?,
+        recurringCommitment: Double,
+        upcomingRecurring: Double,
+        weeklyPaceRatio: Double,
+        recentDailySpend: Double
+    ) -> FinanceCashflowHealth {
+        let reserve = reserveFloor(balanceState: balanceState)
+        let projectedOutflow = projectedSpend ?? totalSpent
+        let freeCashflow = totalIncome - projectedOutflow - recurringCommitment
+        let projectedBalance = balanceState.totalBalance - max(projectedOutflow - totalSpent, 0) - upcomingRecurring
+        let availableRunwayCash = max(balanceState.totalBalance - reserve, 0)
+        let runwayDays = recentDailySpend > 0.009
+            ? Int((availableRunwayCash / recentDailySpend).rounded(.down))
+            : 999
+        let commitmentShare = totalIncome > 0.009 ? recurringCommitment / totalIncome : (recurringCommitment > 0.009 ? 1 : 0)
+
+        var score = 86
+        if freeCashflow < 0 {
+            score -= 22
+        }
+        if projectedBalance < reserve {
+            score -= 24
+        }
+        if commitmentShare > 0.38 {
+            score -= 16
+        }
+        if weeklyPaceRatio > 1.16 {
+            score -= 14
+        } else if weeklyPaceRatio > 1.04 {
+            score -= 7
+        }
+        if runwayDays < 14 {
+            score -= 14
+        } else if runwayDays < 28 {
+            score -= 8
+        }
+        score = min(max(score, 8), 98)
+
+        let status: FinanceHealthStatus
+        switch score {
+        case 78...:
+            status = .resilient
+        case 58...:
+            status = .steady
+        case 36...:
+            status = .pressured
+        default:
+            status = .critical
+        }
+
+        let headline: String
+        let message: String
+        switch status {
+        case .resilient:
+            headline = "Cashflow is covering the cycle."
+            message = commitmentShare > 0.28
+                ? "Income still covers spending, but fixed commitments are taking a meaningful share of inflow."
+                : "Income, balance, and commitments remain in a healthy relationship right now."
+        case .steady:
+            headline = "This month is healthy, but tighter than usual."
+            message = weeklyPaceRatio > 1.08
+                ? "Spending pace is accelerating faster than your recent baseline."
+                : "Free cash remains positive, but balance resilience is narrowing."
+        case .pressured:
+            headline = "Free cash is tightening."
+            message = freeCashflow < 0
+                ? "Projected spending and fixed commitments are now moving ahead of current inflow."
+                : "Balance is still covering the month, but the remaining cushion is getting thin."
+        case .critical:
+            headline = "Cashflow needs attention now."
+            message = "Projected balance is falling close to reserve after current pace and scheduled charges."
+        }
+
+        return FinanceCashflowHealth(
+            status: status,
+            score: score,
+            headline: headline,
+            message: message,
+            freeCashflow: freeCashflow,
+            projectedBalance: projectedBalance,
+            reserveFloor: reserve,
+            runwayDays: max(runwayDays, 0),
+            commitmentShareOfIncome: commitmentShare,
+            spendingPaceRatio: weeklyPaceRatio
+        )
+    }
+
+    private func safeToSpendSummary(
+        balanceState: FinanceBalanceState,
+        totalIncome: Double,
+        totalSpent: Double,
+        upcomingRecurring: Double,
+        currentDateLocal: String,
+        recentDailySpend: Double,
+        timezoneID: String
+    ) -> FinanceSafeToSpendSummary {
+        let reserve = reserveFloor(balanceState: balanceState)
+        let daysRemaining = max(
+            FinanceDateCoding.daysInMonth(anchorDate: currentDateLocal, timezoneID: timezoneID)
+                - FinanceDateCoding.daysElapsedInMonth(anchorDate: currentDateLocal, timezoneID: timezoneID),
+            0
+        )
+        let liquidityRoom = max(balanceState.totalBalance - reserve - upcomingRecurring, 0)
+        let cycleRoom = max(totalIncome - totalSpent - upcomingRecurring, 0)
+        let paceBuffer = recentDailySpend * min(Double(max(daysRemaining, 1)), 5) * 0.45
+        let safeAmount = max(min(liquidityRoom, max(cycleRoom, liquidityRoom * 0.72)) - paceBuffer, 0)
+        let dailyAllowance = daysRemaining > 0 ? safeAmount / Double(daysRemaining) : safeAmount
+
+        let status: FinanceHealthStatus
+        if safeAmount <= 0.009 {
+            status = .critical
+        } else if dailyAllowance < max(recentDailySpend * 0.6, 4) {
+            status = .pressured
+        } else if dailyAllowance < max(recentDailySpend * 0.95, 8) {
+            status = .steady
+        } else {
+            status = .resilient
+        }
+
+        let headline: String
+        let message: String
+        switch status {
+        case .resilient:
+            headline = "Discretionary room remains open."
+            message = "After reserve and scheduled charges, spending can stay near \(Int(dailyAllowance.rounded())) per day for the rest of the month."
+        case .steady:
+            headline = "Safe to spend is healthy, but measured."
+            message = "You can keep discretionary spending near \(Int(dailyAllowance.rounded())) per day without eroding the month."
+        case .pressured:
+            headline = "Discretionary room is narrowing."
+            message = "Keep discretionary spending close to \(Int(dailyAllowance.rounded())) per day to avoid dipping below reserve."
+        case .critical:
+            headline = "There is no clear discretionary cushion."
+            message = "Current pace already consumes the cash left after reserve and scheduled commitments."
+        }
+
+        return FinanceSafeToSpendSummary(
+            status: status,
+            amount: safeAmount,
+            dailyAllowance: dailyAllowance,
+            daysRemaining: daysRemaining,
+            headline: headline,
+            message: message
+        )
+    }
+
+    private func recurringPressureSummary(
+        period: FinanceAnalyticsPeriod,
+        currentTransactions _: [FinanceTransaction],
+        previousTransactions: [FinanceTransaction],
+        recurringItems: [RecurringFinanceTransaction],
+        comparisonIncome: Double,
+        previousIncome: Double,
+        currentDateLocal: String
+    ) -> FinanceRecurringPressureSummary {
+        let monthlyCommitment = recurringService.monthlyTotal(for: recurringItems)
+        let yearlyCommitment = recurringService.yearlyTotal(for: recurringItems)
+        let priorRecurringSpend = previousTransactions
+            .filter { $0.source == .recurring }
+            .reduce(0) { $0 + FinanceComputation.expenseAmount(for: $1) }
+        let referenceIncome = max(comparisonIncome, previousIncome)
+        let shareOfIncome = referenceIncome > 0.009 ? (period == .year ? yearlyCommitment / referenceIncome : monthlyCommitment / referenceIncome) : 0
+        let upcomingCharges = recurringItems
+            .filter(\.isActive)
+            .filter { $0.nextDueDate >= currentDateLocal && $0.nextDueDate.hasPrefix(String(currentDateLocal.prefix(7))) }
+            .reduce(0) { $0 + $1.amount }
+        let growth = priorRecurringSpend > 0.009 ? (monthlyCommitment - priorRecurringSpend) / priorRecurringSpend : nil
+
+        let headline: String
+        let message: String
+        if let growth, growth > 0.12, comparisonIncome <= max(previousIncome * 1.05, 0.01) {
+            headline = "Commitment load is rising."
+            message = "Fixed monthly commitments are increasing faster than income."
+        } else if shareOfIncome > 0.35 {
+            headline = "Recurring load is heavy."
+            message = "Recurring charges are taking a large share of current inflow."
+        } else if upcomingCharges > (monthlyCommitment * 0.45) && monthlyCommitment > 0.009 {
+            headline = "A large share of fixed charges is still ahead."
+            message = "Much of this month's commitment load still has to clear."
+        } else {
+            headline = "Recurring load is contained."
+            message = "Fixed commitments remain stable relative to the current income picture."
+        }
+
+        return FinanceRecurringPressureSummary(
+            activeCount: recurringItems.filter(\.isActive).count,
+            monthlyCommitment: monthlyCommitment,
+            yearlyCommitment: yearlyCommitment,
+            shareOfIncome: shareOfIncome,
+            upcomingChargesTotal: upcomingCharges,
+            growthVsPreviousMonth: growth,
+            headline: headline,
+            message: message
+        )
+    }
+
+    private func spendingPatternSummary(
+        period: FinanceAnalyticsPeriod,
+        currentTransactions: [FinanceTransaction],
+        allTransactions: [FinanceTransaction],
+        currentDateLocal: String,
+        timezoneID: String
+    ) -> FinanceSpendingPatternSummary {
+        let recentDaily = recentExpenseAverage(
+            transactions: allTransactions,
+            anchorDate: currentDateLocal,
+            days: 7,
+            timezoneID: timezoneID
+        )
+        let baselineDaily = recentExpenseAverage(
+            transactions: allTransactions,
+            anchorDate: shiftedAnchorDate(from: currentDateLocal, days: -7, timezoneID: timezoneID),
+            days: 14,
+            timezoneID: timezoneID
+        )
+        let currentSpend = currentTransactions.reduce(0) { $0 + FinanceComputation.expenseAmount(for: $1) }
+        let projectedSpend = period == .month ? projectedMonthSpend(anchorDate: currentDateLocal, monthSpent: currentSpend, timezoneID: timezoneID) : nil
+
+        let acceleratedAfterMidpoint: Bool = {
+            guard period == .month else {
+                return recentDaily > (baselineDaily * 1.18) && baselineDaily > 0.009
+            }
+            let midpoint = 15
+            let firstHalf = currentTransactions.filter {
+                FinanceComputation.expenseAmount(for: $0) > 0 &&
+                Int(FinanceDateCoding.dayNumber(from: FinanceDateCoding.localDateString(from: $0.occurredAt, timezoneID: timezoneID))) ?? 0 <= midpoint
+            }.reduce(0) { $0 + FinanceComputation.expenseAmount(for: $1) } / 15.0
+            let secondHalfDayCount = max(FinanceDateCoding.daysElapsedInMonth(anchorDate: currentDateLocal, timezoneID: timezoneID) - midpoint, 1)
+            let secondHalf = currentTransactions.filter {
+                FinanceComputation.expenseAmount(for: $0) > 0 &&
+                Int(FinanceDateCoding.dayNumber(from: FinanceDateCoding.localDateString(from: $0.occurredAt, timezoneID: timezoneID))) ?? 0 > midpoint
+            }.reduce(0) { $0 + FinanceComputation.expenseAmount(for: $1) } / Double(secondHalfDayCount)
+            return secondHalf > (firstHalf * 1.18) && secondHalf > 0.009
+        }()
+
+        let message: String
+        if acceleratedAfterMidpoint {
+            message = "Discretionary spending accelerated after the second week of the month."
+        } else if baselineDaily > 0.009 && recentDaily > (baselineDaily * 1.15) {
+            message = "Recent daily spending is running above your recent baseline."
+        } else if baselineDaily > 0.009 && recentDaily < (baselineDaily * 0.85) {
+            message = "Recent daily spending cooled versus the prior two-week baseline."
+        } else {
+            message = "Recent spending is holding close to its recent baseline."
+        }
+
+        return FinanceSpendingPatternSummary(
+            recentDailyAverage: recentDaily,
+            baselineDailyAverage: baselineDaily,
+            currentPeriodSpend: currentSpend,
+            projectedPeriodSpend: projectedSpend,
+            acceleratedAfterMidpoint: acceleratedAfterMidpoint,
+            message: message
+        )
+    }
+
+    private func attentionSignals(
+        cashflowHealth: FinanceCashflowHealth,
+        safeToSpend: FinanceSafeToSpendSummary,
+        recurringPressure: FinanceRecurringPressureSummary,
+        spendingPattern: FinanceSpendingPatternSummary,
+        categoryDrift: [FinanceCategoryDrift],
+        unusualRecentSpending: Bool
+    ) -> [FinanceAttentionSignal] {
+        var signals: [FinanceAttentionSignal] = []
+
+        if cashflowHealth.status == .pressured || cashflowHealth.status == .critical {
+            signals.append(
+                FinanceAttentionSignal(
+                    kind: .cashflow,
+                    severity: severity(for: cashflowHealth.status),
+                    title: cashflowHealth.headline,
+                    message: cashflowHealth.message,
+                    metricLabel: "Projected balance",
+                    metricValue: cashflowHealth.projectedBalance
+                )
+            )
+        }
+
+        if safeToSpend.status == .pressured || safeToSpend.status == .critical {
+            signals.append(
+                FinanceAttentionSignal(
+                    kind: .safeToSpend,
+                    severity: severity(for: safeToSpend.status),
+                    title: safeToSpend.headline,
+                    message: safeToSpend.message,
+                    metricLabel: "Safe to spend",
+                    metricValue: safeToSpend.amount
+                )
+            )
+        }
+
+        if recurringPressure.shareOfIncome > 0.3 || (recurringPressure.growthVsPreviousMonth ?? 0) > 0.12 {
+            signals.append(
+                FinanceAttentionSignal(
+                    kind: .recurring,
+                    severity: recurringPressure.shareOfIncome > 0.38 ? .warning : .watch,
+                    title: recurringPressure.headline,
+                    message: recurringPressure.message,
+                    metricLabel: "Monthly commitments",
+                    metricValue: recurringPressure.monthlyCommitment
+                )
+            )
+        }
+
+        if let leadingCategory = categoryDrift.first,
+           leadingCategory.currentAmount > 0.009,
+           leadingCategory.deltaAmount > max(leadingCategory.previousAmount * 0.12, 18) || leadingCategory.shareOfSpend > 0.18 {
+            signals.append(
+                FinanceAttentionSignal(
+                    kind: .category,
+                    severity: leadingCategory.shareOfSpend > 0.24 ? .warning : .watch,
+                    title: "\(leadingCategory.categoryName) is building pressure.",
+                    message: leadingCategory.message,
+                    metricLabel: "Category spend",
+                    metricValue: leadingCategory.currentAmount
+                )
+            )
+        }
+
+        if unusualRecentSpending || spendingPattern.acceleratedAfterMidpoint {
+            signals.append(
+                FinanceAttentionSignal(
+                    kind: .pace,
+                    severity: unusualRecentSpending ? .warning : .watch,
+                    title: unusualRecentSpending ? "Recent spending is above pattern." : "Spending pace accelerated.",
+                    message: spendingPattern.message,
+                    metricLabel: "Recent daily spend",
+                    metricValue: spendingPattern.recentDailyAverage
+                )
+            )
+        }
+
+        if signals.isEmpty {
+            signals.append(
+                FinanceAttentionSignal(
+                    kind: .balance,
+                    severity: .stable,
+                    title: "Cashflow is stable right now.",
+                    message: "Nothing urgent is standing out across pace, fixed commitments, or category drift."
+                )
+            )
+        }
+
+        return signals
+            .sorted { lhs, rhs in
+                if severityRank(lhs.severity) != severityRank(rhs.severity) {
+                    return severityRank(lhs.severity) > severityRank(rhs.severity)
+                }
+                return (lhs.metricValue ?? 0) > (rhs.metricValue ?? 0)
+            }
+            .prefix(4)
+            .map { $0 }
+    }
+
+    private func severity(for status: FinanceHealthStatus) -> FinanceAttentionSeverity {
+        switch status {
+        case .resilient:
+            return .stable
+        case .steady:
+            return .watch
+        case .pressured:
+            return .warning
+        case .critical:
+            return .critical
+        }
+    }
+
+    private func severityRank(_ severity: FinanceAttentionSeverity) -> Int {
+        switch severity {
+        case .stable:
+            return 0
+        case .watch:
+            return 1
+        case .warning:
+            return 2
+        case .critical:
+            return 3
+        }
+    }
+
+    private func shiftedAnchorDate(from anchorDate: String, days: Int, timezoneID: String) -> String {
+        guard let anchor = FinanceDateCoding.date(from: anchorDate, timezoneID: timezoneID) else {
+            return anchorDate
+        }
+        let localCalendar = FinanceDateCoding.calendar(timezoneID: timezoneID)
+        let shifted = localCalendar.date(byAdding: .day, value: days, to: anchor) ?? anchor
+        return FinanceDateCoding.isoDateString(from: shifted, timezoneID: timezoneID)
     }
 
     private func warnings(

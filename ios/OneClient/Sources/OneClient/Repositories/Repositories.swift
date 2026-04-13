@@ -353,7 +353,7 @@ public actor DefaultTodayRepository: TodayRepository {
     }
 
     public func loadToday(date: String?) async throws -> TodayResponse {
-        let result = try await apiClient.fetchToday(date: date)
+        let result = try await apiClient.fetchToday(date: date).normalized()
         cached = result
         return result
     }
@@ -371,7 +371,7 @@ public actor DefaultTodayRepository: TodayRepository {
                 completedCount: completed,
                 totalCount: items.count,
                 completionRatio: items.isEmpty ? 0 : Double(completed) / Double(items.count)
-            )
+            ).normalized()
             cached = current
         }
 
@@ -385,7 +385,7 @@ public actor DefaultTodayRepository: TodayRepository {
         await syncQueue.drain(using: apiClient)
 
         do {
-            let refreshed = try await apiClient.fetchToday(date: dateLocal)
+            let refreshed = try await apiClient.fetchToday(date: dateLocal).normalized()
             cached = refreshed
             await MainActor.run {
                 OneSyncFeedbackCenter.shared.showSynced(
@@ -403,7 +403,7 @@ public actor DefaultTodayRepository: TodayRepository {
                         message: "Today's change will sync when the connection returns."
                     )
                 }
-                return cached
+                return cached.normalized()
             }
 
             await MainActor.run {
@@ -431,7 +431,7 @@ public actor DefaultTodayRepository: TodayRepository {
         await syncQueue.drain(using: apiClient)
 
         do {
-            let refreshed = try await apiClient.fetchToday(date: dateLocal)
+            let refreshed = try await apiClient.fetchToday(date: dateLocal).normalized()
             cached = refreshed
             await MainActor.run {
                 OneSyncFeedbackCenter.shared.showSynced(
@@ -449,7 +449,7 @@ public actor DefaultTodayRepository: TodayRepository {
                         message: "The new order will sync when possible."
                     )
                 }
-                return cached
+                return cached.normalized()
             }
 
             await MainActor.run {
@@ -463,7 +463,9 @@ public actor DefaultTodayRepository: TodayRepository {
     }
 
     private func applyReorder(items: [TodayOrderItem], current: TodayResponse) -> TodayResponse {
-        let lookup = Dictionary(uniqueKeysWithValues: current.items.map { ($0.id, $0) })
+        let lookup = current.items.reduce(into: [String: TodayItem]()) { partial, item in
+            partial[item.id] = partial[item.id] ?? item
+        }
         var ordered: [TodayItem] = []
         var seen: Set<String> = []
         for entry in items.sorted(by: { $0.orderIndex < $1.orderIndex }) {
@@ -482,7 +484,7 @@ public actor DefaultTodayRepository: TodayRepository {
             completedCount: completed,
             totalCount: ordered.count,
             completionRatio: ordered.isEmpty ? 0 : Double(completed) / Double(ordered.count)
-        )
+        ).normalized()
     }
 }
 

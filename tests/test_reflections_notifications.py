@@ -20,6 +20,8 @@ class ReflectionAndNotificationTests(unittest.TestCase):
             tags=["gym", "school"],
         )
         upsert_reflection(notes, first)
+        self.assertIn("quick-capture", notes[0].tags)
+        self.assertIn("clear-focus", notes[0].tags)
 
         updated = ReflectionNote(
             id="r2",
@@ -34,6 +36,7 @@ class ReflectionAndNotificationTests(unittest.TestCase):
         upsert_reflection(notes, updated)
 
         self.assertEqual(len(notes), 2)
+        self.assertIn("positive-momentum", notes[1].tags)
         self.assertIn("worked", reflection_prompt(PeriodType.DAILY).lower())
         found = search_reflections(notes=notes, user_id="u1", query="recovery")
         self.assertEqual(found[0].content, "Gym done, school recovered in evening.")

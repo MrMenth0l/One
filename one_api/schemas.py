@@ -258,6 +258,14 @@ class TodayItemResponse(BaseModel):
     priority: int | None = None
     due_at: datetime | None = None
     preferred_time: time | None = None
+    blended_score: float = 0
+    prominence: str = "standard"
+    surface_zone: str = "flow"
+    urgency: str = "none"
+    time_bucket: str = "anytime"
+    cluster_key: str = ""
+    learning_confidence: float = 0
+    manual_boost: float = 0
 
 
 class TodayResponse(BaseModel):

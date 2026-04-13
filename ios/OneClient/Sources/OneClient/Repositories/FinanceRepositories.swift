@@ -207,6 +207,7 @@ public actor LocalFinanceRepository: FinanceRepository, ModelActor {
         try materializeRecurringTransactionsIfNeeded(userID: user.id, timezoneID: user.timezone)
         return analyticsService.analyticsSnapshot(
             period: period,
+            balanceState: mapBalance(try resolvedBalanceEntity(userID: user.id)),
             categories: try financeCategories(userID: user.id),
             transactions: try financeTransactions(userID: user.id),
             recurringItems: try recurringTransactions(userID: user.id),

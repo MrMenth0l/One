@@ -6,9 +6,10 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
-from one.tracking import build_today_items, materialize_habit_logs
+from one.models import ItemType
+from one.tracking import TodayOrderOverride, build_today_items, materialize_habit_logs
 from one_api.db import mappers
-from one_api.db.repositories import CompletionLogRepository, HabitRepository, TodayOrderOverrideRepository, TodoRepository
+from one_api.db.repositories import CategoryRepository, CompletionLogRepository, HabitRepository, TodayOrderOverrideRepository, TodoRepository
 from one_api.metrics import record_materialization_call
 
 
@@ -24,6 +25,7 @@ class TodayPayload:
 class TodayService:
     def __init__(self, db: Session):
         self.db = db
+        self.categories = CategoryRepository(db)
         self.habits = HabitRepository(db)
         self.todos = TodoRepository(db)
         self.logs = CompletionLogRepository(db)
@@ -36,12 +38,15 @@ class TodayService:
             target = datetime.now(UTC).astimezone(ZoneInfo(timezone)).date()
 
         habit_rows = self.habits.list_for_user(user_id)
+        category_rows = self.categories.list_for_user(user_id)
         todo_rows = self.todos.list_for_user(user_id)
-        log_rows = self.logs.list_for_date(user_id, target)
+        log_rows = self.logs.list_for_user(user_id)
+        override_rows = self.order_overrides.list_for_user(user_id)
 
         habits = [mappers.to_habit(row) for row in habit_rows]
         todos = [mappers.to_todo(row) for row in todo_rows]
         logs = [mappers.to_completion_log(row) for row in log_rows]
+        categories_by_id = {row.id: row.name for row in category_rows}
 
         created_logs = materialize_habit_logs(
             user_id=user_id,
@@ -64,13 +69,24 @@ class TodayService:
         record_materialization_call(len(created_logs))
         self.db.flush()
 
-        all_logs = [mappers.to_completion_log(row) for row in self.logs.list_for_date(user_id, target)]
+        all_logs = [mappers.to_completion_log(row) for row in self.logs.list_for_user(user_id)]
         items = build_today_items(
             today=target,
             timezone=timezone,
             habits=habits,
             todos=todos,
             completion_logs=all_logs,
+            order_overrides=[
+                TodayOrderOverride(
+                    date_local=row.date_local,
+                    item_type=ItemType(row.item_type),
+                    item_id=row.item_id,
+                    order_index=row.order_index,
+                )
+                for row in override_rows
+            ],
+            categories_by_id=categories_by_id,
+            current_local_dt=datetime.now(UTC).astimezone(ZoneInfo(timezone)),
         )
         overrides = self.order_overrides.list_for_date(user_id, target)
         items = self._apply_overrides(items, overrides)

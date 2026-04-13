@@ -4,7 +4,7 @@ import SwiftUI
 struct OneUtilityRailItem<ID: Hashable & Sendable>: Identifiable, Hashable, Sendable {
     let id: ID
     let title: String
-    let systemImage: String
+    let icon: OneAppIconKey
 }
 
 struct OneUtilityRailAnchor<ID: Hashable & Sendable>: Hashable, Sendable {
@@ -80,17 +80,17 @@ enum ReviewUtilityRailSection: String, CaseIterable, Sendable {
     var railItem: OneUtilityRailItem<Self> {
         switch self {
         case .review:
-            return OneUtilityRailItem(id: self, title: "Review", systemImage: "doc.text.magnifyingglass")
+            return OneUtilityRailItem(id: self, title: "Review", icon: .semantic(.review))
         case .notes:
-            return OneUtilityRailItem(id: self, title: "Notes", systemImage: "note.text")
+            return OneUtilityRailItem(id: self, title: "Notes", icon: .semantic(.note))
         case .coach:
-            return OneUtilityRailItem(id: self, title: "Coach", systemImage: "bubble.left.and.text.bubble.right")
+            return OneUtilityRailItem(id: self, title: "Coach", icon: .semantic(.coach))
         case .trend:
-            return OneUtilityRailItem(id: self, title: "Trend", systemImage: "chart.line.uptrend.xyaxis")
+            return OneUtilityRailItem(id: self, title: "Trend", icon: .semantic(.analytics))
         case .split:
-            return OneUtilityRailItem(id: self, title: "Split", systemImage: "rectangle.split.3x1")
+            return OneUtilityRailItem(id: self, title: "Split", icon: .ui(.railSplit))
         case .recovery:
-            return OneUtilityRailItem(id: self, title: "Recovery", systemImage: "arrow.counterclockwise.circle")
+            return OneUtilityRailItem(id: self, title: "Recovery", icon: .ui(.railRecovery))
         }
     }
 
@@ -101,23 +101,26 @@ enum ReviewUtilityRailSection: String, CaseIterable, Sendable {
 
 enum FinanceUtilityRailSection: String, CaseIterable, Sendable {
     case home
+    case overview
+    case analysis
     case transactions
-    case reports
     case recurring
     case categories
 
     var railItem: OneUtilityRailItem<Self> {
         switch self {
         case .home:
-            return OneUtilityRailItem(id: self, title: "Home", systemImage: "creditcard")
+            return OneUtilityRailItem(id: self, title: "Home", icon: .semantic(.finance))
+        case .overview:
+            return OneUtilityRailItem(id: self, title: "Overview", icon: .ui(.railSplit))
+        case .analysis:
+            return OneUtilityRailItem(id: self, title: "Analysis", icon: .semantic(.analytics))
         case .transactions:
-            return OneUtilityRailItem(id: self, title: "Transactions", systemImage: "list.bullet.rectangle.portrait")
-        case .reports:
-            return OneUtilityRailItem(id: self, title: "Reports", systemImage: "chart.bar.xaxis")
+            return OneUtilityRailItem(id: self, title: "Transactions", icon: .semantic(.transaction))
         case .recurring:
-            return OneUtilityRailItem(id: self, title: "Recurring", systemImage: "repeat.circle")
+            return OneUtilityRailItem(id: self, title: "Recurring", icon: .ui(.railRecurring))
         case .categories:
-            return OneUtilityRailItem(id: self, title: "Categories", systemImage: "square.grid.2x2.fill")
+            return OneUtilityRailItem(id: self, title: "Categories", icon: .semantic(.financeCategory))
         }
     }
 
@@ -133,9 +136,6 @@ struct OneUtilityRail<ID: Hashable & Sendable>: View {
     let isSticky: Bool
     let onSelect: (ID) -> Void
 
-    @State private var chipFrames: [AnyHashable: CGRect] = [:]
-    @State private var viewportFrame: CGRect = .zero
-    @State private var pendingTapSelection: ID?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -144,37 +144,19 @@ struct OneUtilityRail<ID: Hashable & Sendable>: View {
                 LazyHStack(spacing: 8) {
                     ForEach(items) { item in
                         Button {
-                            pendingTapSelection = item.id
                             onSelect(item.id)
                         } label: {
                             chip(for: item, isActive: activeID == item.id)
                         }
                         .buttonStyle(.plain)
                         .id(item.id)
-                        .background(
-                            GeometryReader { proxy in
-                                Color.clear.preference(
-                                    key: OneUtilityRailChipFramePreferenceKey.self,
-                                    value: [AnyHashable(item.id): proxy.frame(in: .named(OneUtilityRailChipViewportPreferenceKey.coordinateSpaceName))]
-                                )
-                            }
-                        )
                     }
                 }
                 .scrollTargetLayout()
                 .padding(.horizontal, 6)
                 .padding(.vertical, isSticky ? 5 : 6)
             }
-            .coordinateSpace(name: OneUtilityRailChipViewportPreferenceKey.coordinateSpaceName)
             .scrollTargetBehavior(.viewAligned)
-            .background(
-                GeometryReader { proxy in
-                    Color.clear.preference(
-                        key: OneUtilityRailChipViewportPreferenceKey.self,
-                        value: proxy.frame(in: .named(OneUtilityRailChipViewportPreferenceKey.coordinateSpaceName))
-                    )
-                }
-            )
             .background(containerBackground)
             .clipShape(RoundedRectangle(cornerRadius: OneTheme.radiusLarge, style: .continuous))
             .overlay(
@@ -183,19 +165,10 @@ struct OneUtilityRail<ID: Hashable & Sendable>: View {
             )
             .shadow(color: palette.shadowColor.opacity(isSticky ? 1 : 0.75), radius: isSticky ? 12 : 6, x: 0, y: isSticky ? 5 : 2)
             .scaleEffect(isSticky ? 0.985 : 1)
-            .onPreferenceChange(OneUtilityRailChipFramePreferenceKey.self) { chipFrames = $0 }
-            .onPreferenceChange(OneUtilityRailChipViewportPreferenceKey.self) { viewportFrame = $0 }
             .onChange(of: activeID) { _, next in
                 guard let next else {
                     return
                 }
-                let tapped = pendingTapSelection == next
-                pendingTapSelection = nil
-
-                guard tapped || isChipOffscreen(next) else {
-                    return
-                }
-
                 withAnimation(OneMotion.animation(.stateChange, reduceMotion: reduceMotion)) {
                     proxy.scrollTo(next, anchor: .center)
                 }
@@ -215,8 +188,11 @@ struct OneUtilityRail<ID: Hashable & Sendable>: View {
 
     private func chip(for item: OneUtilityRailItem<ID>, isActive: Bool) -> some View {
         HStack(spacing: 7) {
-            Image(systemName: item.systemImage)
-                .font(.system(size: 13, weight: isActive ? .semibold : .medium))
+            OneAppIcon(
+                key: item.icon,
+                size: 13,
+                tint: isActive ? palette.text : palette.subtext
+            )
             Text(item.title)
                 .font(.system(size: 12, weight: isActive ? .semibold : .medium))
                 .lineLimit(1)
@@ -239,31 +215,6 @@ struct OneUtilityRail<ID: Hashable & Sendable>: View {
             y: isActive ? 2 : 0
         )
         .contentShape(RoundedRectangle(cornerRadius: OneTheme.radiusMedium, style: .continuous))
-    }
-
-    private func isChipOffscreen(_ id: ID) -> Bool {
-        let key = AnyHashable(id)
-        guard let frame = chipFrames[key], viewportFrame != .zero else {
-            return false
-        }
-        return frame.minX < viewportFrame.minX || frame.maxX > viewportFrame.maxX
-    }
-}
-
-private struct OneUtilityRailChipFramePreferenceKey: PreferenceKey {
-    static var defaultValue: [AnyHashable: CGRect] { [:] }
-
-    static func reduce(value: inout [AnyHashable: CGRect], nextValue: () -> [AnyHashable: CGRect]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, next in next })
-    }
-}
-
-private struct OneUtilityRailChipViewportPreferenceKey: PreferenceKey {
-    static let coordinateSpaceName = "one-utility-rail-chip-space"
-    static var defaultValue: CGRect { .zero }
-
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
     }
 }
 

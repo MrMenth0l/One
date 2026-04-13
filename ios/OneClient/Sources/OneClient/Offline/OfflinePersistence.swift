@@ -284,6 +284,178 @@ public struct LocalPersistenceStack {
     public let syncQueue: SyncQueue
 }
 
+enum OneSharedPersistenceStore {
+    static let schema = Schema([
+        LocalUserEntity.self,
+        LocalPreferencesEntity.self,
+        LocalCategoryEntity.self,
+        LocalHabitEntity.self,
+        LocalTodoEntity.self,
+        LocalCompletionLogEntity.self,
+        LocalTodayOrderOverrideEntity.self,
+        LocalReflectionEntity.self,
+        LocalCoachCardEntity.self,
+        LocalFinanceTransactionEntity.self,
+        LocalFinanceCategoryEntity.self,
+        LocalFinanceBalanceEntity.self,
+        LocalRecurringFinanceTransactionEntity.self,
+        PendingMutationEntity.self,
+    ])
+
+    private static let sqliteSidecarSuffixes = ["", "-shm", "-wal"]
+
+    private struct StoreSummary {
+        let userCount: Int
+        let categoryCount: Int
+        let habitCount: Int
+        let todoCount: Int
+        let completionLogCount: Int
+        let reflectionCount: Int
+        let financeTransactionCount: Int
+
+        var payloadCount: Int {
+            habitCount + todoCount + completionLogCount + reflectionCount + financeTransactionCount
+        }
+
+        var looksFreshBootstrap: Bool {
+            userCount <= 1 &&
+            categoryCount <= 5 &&
+            payloadCount == 0
+        }
+    }
+
+    static func makeContainer(inMemory: Bool) throws -> ModelContainer {
+        if !inMemory {
+            try migrateLegacyStoreIfNeeded()
+        }
+        let configuration: ModelConfiguration
+        if inMemory {
+            configuration = ModelConfiguration("OneOfflineStore", isStoredInMemoryOnly: true)
+        } else {
+            configuration = ModelConfiguration(
+                "OneOfflineStore",
+                url: try OneSharedSystem.storeURL()
+            )
+        }
+        return try ModelContainer(for: schema, configurations: [configuration])
+    }
+
+    private static func migrateLegacyStoreIfNeeded(fileManager: FileManager = .default) throws {
+        guard let _ = OneSharedSystem.sharedContainerURL(fileManager: fileManager) else {
+            return
+        }
+
+        let sharedStoreURL = try OneSharedSystem.storeURL(fileManager: fileManager)
+        let legacyStoreURL = try OneSharedSystem.legacyStoreURL(fileManager: fileManager)
+
+        guard sharedStoreURL.standardizedFileURL != legacyStoreURL.standardizedFileURL else {
+            return
+        }
+
+        guard storeExists(at: legacyStoreURL, fileManager: fileManager) else {
+            return
+        }
+
+        let sharedSummary = try storeSummary(at: sharedStoreURL, fileManager: fileManager)
+        let legacySummary = try storeSummary(at: legacyStoreURL, fileManager: fileManager)
+        guard legacySummary.userCount > 0 else {
+            return
+        }
+
+        let shouldRestoreLegacyData =
+            sharedSummary.userCount == 0 ||
+            (
+                sharedSummary.looksFreshBootstrap &&
+                legacySummary.payloadCount > sharedSummary.payloadCount
+            )
+
+        guard shouldRestoreLegacyData else {
+            return
+        }
+
+        try fileManager.createDirectory(
+            at: sharedStoreURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try removeStoreFiles(at: sharedStoreURL, fileManager: fileManager)
+        try copyStoreFiles(from: legacyStoreURL, to: sharedStoreURL, fileManager: fileManager)
+    }
+
+    private static func storeSummary(at storeURL: URL, fileManager: FileManager) throws -> StoreSummary {
+        guard storeExists(at: storeURL, fileManager: fileManager) else {
+            return StoreSummary(
+                userCount: 0,
+                categoryCount: 0,
+                habitCount: 0,
+                todoCount: 0,
+                completionLogCount: 0,
+                reflectionCount: 0,
+                financeTransactionCount: 0
+            )
+        }
+        let configuration = ModelConfiguration("OneOfflineStore", url: storeURL)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = ModelContext(container)
+        let users = try context.fetch(FetchDescriptor<LocalUserEntity>())
+            .filter { $0.deletedAt == nil }
+            .count
+        let categories = try context.fetch(FetchDescriptor<LocalCategoryEntity>())
+            .filter { $0.deletedAt == nil }
+            .count
+        let habits = try context.fetch(FetchDescriptor<LocalHabitEntity>())
+            .filter { $0.deletedAt == nil }
+            .count
+        let todos = try context.fetch(FetchDescriptor<LocalTodoEntity>())
+            .filter { $0.deletedAt == nil }
+            .count
+        let completionLogs = try context.fetch(FetchDescriptor<LocalCompletionLogEntity>())
+            .filter { $0.deletedAt == nil }
+            .count
+        let reflections = try context.fetch(FetchDescriptor<LocalReflectionEntity>())
+            .filter { $0.deletedAt == nil }
+            .count
+        let financeTransactions = try context.fetch(FetchDescriptor<LocalFinanceTransactionEntity>())
+            .filter { $0.deletedAt == nil }
+            .count
+
+        return StoreSummary(
+            userCount: users,
+            categoryCount: categories,
+            habitCount: habits,
+            todoCount: todos,
+            completionLogCount: completionLogs,
+            reflectionCount: reflections,
+            financeTransactionCount: financeTransactions
+        )
+    }
+
+    private static func storeExists(at storeURL: URL, fileManager: FileManager) -> Bool {
+        sqliteSidecarSuffixes.contains { suffix in
+            fileManager.fileExists(atPath: storeURL.path + suffix)
+        }
+    }
+
+    private static func removeStoreFiles(at storeURL: URL, fileManager: FileManager) throws {
+        for suffix in sqliteSidecarSuffixes {
+            let fileURL = URL(fileURLWithPath: storeURL.path + suffix)
+            if fileManager.fileExists(atPath: fileURL.path) {
+                try fileManager.removeItem(at: fileURL)
+            }
+        }
+    }
+
+    private static func copyStoreFiles(from sourceURL: URL, to destinationURL: URL, fileManager: FileManager) throws {
+        for suffix in sqliteSidecarSuffixes {
+            let sourceFileURL = URL(fileURLWithPath: sourceURL.path + suffix)
+            let destinationFileURL = URL(fileURLWithPath: destinationURL.path + suffix)
+            guard fileManager.fileExists(atPath: sourceFileURL.path) else {
+                continue
+            }
+            try fileManager.copyItem(at: sourceFileURL, to: destinationFileURL)
+        }
+    }
+}
+
 public enum LocalPersistenceFactory {
     public static func makeStored(sessionStore: AuthSessionStore) throws -> LocalPersistenceStack {
         try make(sessionStore: sessionStore, inMemory: false)
@@ -294,41 +466,7 @@ public enum LocalPersistenceFactory {
     }
 
     private static func make(sessionStore: AuthSessionStore, inMemory: Bool) throws -> LocalPersistenceStack {
-        let schema = Schema([
-            LocalUserEntity.self,
-            LocalPreferencesEntity.self,
-            LocalCategoryEntity.self,
-            LocalHabitEntity.self,
-            LocalTodoEntity.self,
-            LocalCompletionLogEntity.self,
-            LocalTodayOrderOverrideEntity.self,
-            LocalReflectionEntity.self,
-            LocalCoachCardEntity.self,
-            LocalFinanceTransactionEntity.self,
-            LocalFinanceCategoryEntity.self,
-            LocalFinanceBalanceEntity.self,
-            LocalRecurringFinanceTransactionEntity.self,
-            PendingMutationEntity.self,
-        ])
-        let configuration: ModelConfiguration
-        if inMemory {
-            configuration = ModelConfiguration("OneOfflineStore", isStoredInMemoryOnly: true)
-        } else {
-            let fileManager = FileManager.default
-            let applicationSupportURL = try fileManager.url(
-                for: .applicationSupportDirectory,
-                in: .userDomainMask,
-                appropriateFor: nil,
-                create: true
-            )
-            try fileManager.createDirectory(
-                at: applicationSupportURL,
-                withIntermediateDirectories: true
-            )
-            let storeURL = applicationSupportURL.appendingPathComponent("OneOfflineStore.store")
-            configuration = ModelConfiguration("OneOfflineStore", url: storeURL)
-        }
-        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let container = try OneSharedPersistenceStore.makeContainer(inMemory: inMemory)
         let apiClient = LocalDataClient(container: container, sessionStore: sessionStore)
         let syncQueue = SwiftDataSyncQueue(container: container)
         return LocalPersistenceStack(container: container, apiClient: apiClient, syncQueue: syncQueue)
@@ -574,15 +712,17 @@ public actor LocalDataClient: LocalDataGateway, LocalProfileInspectable, ModelAc
     public func fetchToday(date: String?) async throws -> TodayResponse {
         let user = try await fetchMe()
         let targetDate = date ?? OfflineDateCoding.localDateString(from: Date(), timezoneID: user.timezone)
+        let categories = try await fetchCategories()
         let habits = try await fetchHabits()
         let todos = try await fetchTodos()
         let logs = try activeCompletionLogEntities()
             .filter { $0.userId == user.id }
             .map(mapCompletionLog)
         let overrides = try activeTodayOrderOverrideEntities()
-            .filter { $0.userId == user.id && $0.dateLocal == targetDate }
+            .filter { $0.userId == user.id }
             .map {
                 TodayOrderOverrideRecord(
+                    dateLocal: $0.dateLocal,
                     itemType: ItemType(rawValue: $0.itemType) ?? .habit,
                     itemId: $0.itemId,
                     orderIndex: $0.orderIndex
@@ -592,6 +732,7 @@ public actor LocalDataClient: LocalDataGateway, LocalProfileInspectable, ModelAc
         let materialization = todayService.materialize(
             user: user,
             targetDate: targetDate,
+            categories: categories,
             habits: habits,
             todos: todos,
             completionLogs: logs,
@@ -751,6 +892,11 @@ public actor LocalDataClient: LocalDataGateway, LocalProfileInspectable, ModelAc
     public func upsertReflection(input: ReflectionWriteInput) async throws -> ReflectionNote {
         let user = try await fetchMe()
         let now = Date()
+        let derivedTags = NotesViewModel.derivedReflectionTags(
+            content: input.content,
+            sentiment: input.sentiment,
+            existing: input.tags
+        )
         let incoming = ReflectionNote(
             id: UUID().uuidString,
             userId: user.id,
@@ -759,7 +905,7 @@ public actor LocalDataClient: LocalDataGateway, LocalProfileInspectable, ModelAc
             periodEnd: input.periodEnd,
             content: input.content,
             sentiment: input.sentiment,
-            tags: input.tags,
+            tags: derivedTags,
             createdAt: now,
             updatedAt: now
         )

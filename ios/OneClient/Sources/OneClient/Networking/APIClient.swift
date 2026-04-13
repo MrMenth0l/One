@@ -381,13 +381,18 @@ public actor HTTPAPIClient: APIClient {
     }
 
     public func upsertReflection(input: ReflectionWriteInput) async throws -> ReflectionNote {
+        let derivedTags = NotesViewModel.derivedReflectionTags(
+            content: input.content,
+            sentiment: input.sentiment,
+            existing: input.tags
+        )
         let body = WireReflectionWriteRequest(
             periodType: input.periodType.rawValue,
             periodStart: input.periodStart,
             periodEnd: input.periodEnd,
             content: input.content,
             sentiment: input.sentiment.rawValue,
-            tags: input.tags
+            tags: derivedTags
         )
         let data = try await send(path: "/reflections", method: "POST", body: body)
         let wire: WireReflectionNote = try decode(data)
@@ -664,13 +669,21 @@ public actor HTTPAPIClient: APIClient {
                     isPinned: $0.isPinned,
                     priority: $0.priority,
                     dueAt: Self.parseDateTime($0.dueAt),
-                    preferredTime: $0.preferredTime
+                    preferredTime: $0.preferredTime,
+                    blendedScore: $0.blendedScore,
+                    prominence: TodayProminence(rawValue: $0.prominence) ?? .standard,
+                    surfaceZone: TodaySurfaceZone(rawValue: $0.surfaceZone) ?? .flow,
+                    urgency: TodayUrgency(rawValue: $0.urgency) ?? .none,
+                    timeBucket: TodayTimeBucket(rawValue: $0.timeBucket) ?? .anytime,
+                    clusterKey: $0.clusterKey,
+                    learningConfidence: $0.learningConfidence,
+                    manualBoost: $0.manualBoost
                 )
             },
             completedCount: wire.completedCount,
             totalCount: wire.totalCount,
             completionRatio: wire.completionRatio
-        )
+        ).normalized()
     }
 
     private func map(_ wire: WireReflectionNote) -> ReflectionNote {
@@ -968,7 +981,9 @@ public actor MockAPIClient: APIClient {
     public func putTodayOrder(dateLocal: String, items: [TodayOrderItem]) async throws -> TodayResponse {
         var ordered: [TodayItem] = []
         var seen: Set<String> = []
-        let lookup = Dictionary(uniqueKeysWithValues: todayResponse.items.map { ($0.id, $0) })
+        let lookup = todayResponse.items.reduce(into: [String: TodayItem]()) { partial, item in
+            partial[item.id] = partial[item.id] ?? item
+        }
 
         for entry in items.sorted(by: { $0.orderIndex < $1.orderIndex }) {
             let key = "\(entry.itemType.rawValue):\(entry.itemId)"
@@ -987,7 +1002,7 @@ public actor MockAPIClient: APIClient {
             completedCount: completed,
             totalCount: ordered.count,
             completionRatio: ordered.isEmpty ? 0 : Double(completed) / Double(ordered.count)
-        )
+        ).normalized()
         return todayResponse
     }
 
@@ -1003,7 +1018,7 @@ public actor MockAPIClient: APIClient {
             completedCount: completed,
             totalCount: mutable.count,
             completionRatio: mutable.isEmpty ? 0 : Double(completed) / Double(mutable.count)
-        )
+        ).normalized()
     }
 
     public func fetchDaily(startDate: String, endDate: String) async throws -> [DailySummary] {
@@ -1035,6 +1050,11 @@ public actor MockAPIClient: APIClient {
     }
 
     public func upsertReflection(input: ReflectionWriteInput) async throws -> ReflectionNote {
+        let derivedTags = NotesViewModel.derivedReflectionTags(
+            content: input.content,
+            sentiment: input.sentiment,
+            existing: input.tags
+        )
         let note = ReflectionNote(
             id: UUID().uuidString,
             userId: "u1",
@@ -1043,7 +1063,7 @@ public actor MockAPIClient: APIClient {
             periodEnd: input.periodEnd,
             content: input.content,
             sentiment: input.sentiment,
-            tags: input.tags,
+            tags: derivedTags,
             createdAt: Date(),
             updatedAt: Date()
         )
@@ -1539,6 +1559,14 @@ private struct WireTodayItem: Codable {
     let priority: Int?
     let dueAt: String?
     let preferredTime: String?
+    let blendedScore: Double
+    let prominence: String
+    let surfaceZone: String
+    let urgency: String
+    let timeBucket: String
+    let clusterKey: String
+    let learningConfidence: Double
+    let manualBoost: Double
 
     enum CodingKeys: String, CodingKey {
         case itemType = "item_type"
@@ -1553,6 +1581,39 @@ private struct WireTodayItem: Codable {
         case priority
         case dueAt = "due_at"
         case preferredTime = "preferred_time"
+        case blendedScore = "blended_score"
+        case prominence
+        case surfaceZone = "surface_zone"
+        case urgency
+        case timeBucket = "time_bucket"
+        case clusterKey = "cluster_key"
+        case learningConfidence = "learning_confidence"
+        case manualBoost = "manual_boost"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        itemType = try container.decode(String.self, forKey: .itemType)
+        itemId = try container.decode(String.self, forKey: .itemId)
+        title = try container.decode(String.self, forKey: .title)
+        categoryId = try container.decode(String.self, forKey: .categoryId)
+        completed = try container.decode(Bool.self, forKey: .completed)
+        sortBucket = try container.decode(Int.self, forKey: .sortBucket)
+        sortScore = try container.decode(Double.self, forKey: .sortScore)
+        subtitle = try container.decodeIfPresent(String.self, forKey: .subtitle)
+        isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned)
+        priority = try container.decodeIfPresent(Int.self, forKey: .priority)
+        dueAt = try container.decodeIfPresent(String.self, forKey: .dueAt)
+        preferredTime = try container.decodeIfPresent(String.self, forKey: .preferredTime)
+        blendedScore = try container.decodeIfPresent(Double.self, forKey: .blendedScore) ?? 0
+        prominence = try container.decodeIfPresent(String.self, forKey: .prominence) ?? TodayProminence.standard.rawValue
+        surfaceZone = try container.decodeIfPresent(String.self, forKey: .surfaceZone) ?? TodaySurfaceZone.flow.rawValue
+        urgency = try container.decodeIfPresent(String.self, forKey: .urgency) ?? TodayUrgency.none.rawValue
+        timeBucket = try container.decodeIfPresent(String.self, forKey: .timeBucket) ?? TodayTimeBucket.anytime.rawValue
+        clusterKey = try container.decodeIfPresent(String.self, forKey: .clusterKey) ?? ""
+        learningConfidence = try container.decodeIfPresent(Double.self, forKey: .learningConfidence) ?? 0
+        manualBoost = try container.decodeIfPresent(Double.self, forKey: .manualBoost) ?? 0
     }
 }
 

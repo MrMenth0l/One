@@ -60,6 +60,14 @@ def _to_response(payload) -> TodayResponse:
                 priority=item.priority,
                 due_at=item.due_at,
                 preferred_time=item.preferred_time,
+                blended_score=item.blended_score,
+                prominence=item.prominence.value,
+                surface_zone=item.surface_zone.value,
+                urgency=item.urgency.value,
+                time_bucket=item.time_bucket.value,
+                cluster_key=item.cluster_key,
+                learning_confidence=item.learning_confidence,
+                manual_boost=item.manual_boost,
             )
             for item in payload.items
         ],

@@ -31,12 +31,43 @@ targets:
     dependencies:
       - package: OneClient
         product: OneClient
+      - target: OneWidgetsExtension
+        embed: true
     settings:
+      base:
+        CODE_SIGN_ENTITLEMENTS: OneApp/OneApp.entitlements
+        PRODUCT_BUNDLE_IDENTIFIER: com.yehosuah.one.app
+        TARGETED_DEVICE_FAMILY: "1,2"
       configs:
         Debug:
           INFOPLIST_FILE: OneApp/Info.Debug.plist
         Release:
           INFOPLIST_FILE: OneApp/Info.Release.plist
+  OneWidgetsExtension:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    configFiles:
+      Debug: Configs/Debug.xcconfig
+      Release: Configs/Release.xcconfig
+    sources:
+      - path: OneWidgetsExtension
+    dependencies:
+      - package: OneClient
+        product: OneClient
+    settings:
+      base:
+        APPLICATION_EXTENSION_API_ONLY: YES
+        CODE_SIGN_ENTITLEMENTS: OneWidgetsExtension/OneWidgetsExtension.entitlements
+        INFOPLIST_FILE: OneWidgetsExtension/Info.plist
+        LD_RUNPATH_SEARCH_PATHS:
+          - $(inherited)
+          - "@executable_path/Frameworks"
+          - "@executable_path/../../Frameworks"
+        PRODUCT_BUNDLE_IDENTIFIER: com.yehosuah.one.app.widgets
+        PRODUCT_NAME: "$(TARGET_NAME)"
+        SKIP_INSTALL: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
   OneAppTests:
     type: bundle.unit-test
     platform: iOS
@@ -61,6 +92,7 @@ schemes:
     build:
       targets:
         OneApp: all
+        OneWidgetsExtension: [run, archive]
         OneAppTests: [test]
     run:
       config: Debug

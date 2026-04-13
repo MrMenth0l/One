@@ -416,10 +416,152 @@ public extension FinanceCategoryTotal {
     }
 }
 
+private protocol OneAssetCatalogKey {
+    var assetName: String { get }
+    var assetAccessibilityLabel: String { get }
+}
+
+extension OneIconKey: OneAssetCatalogKey {
+    var assetName: String {
+        rawValue.replacingOccurrences(of: ".", with: "-")
+    }
+
+    var assetAccessibilityLabel: String {
+        accessibilityLabel
+    }
+}
+
+enum OneUIIconKey: String, CaseIterable, Sendable, Hashable, OneAssetCatalogKey {
+    case quickAddOpen = "ui.quick-add-open"
+    case quickAddClose = "ui.quick-add-close"
+    case railSplit = "ui.rail-split"
+    case railRecovery = "ui.rail-recovery"
+    case railRecurring = "ui.rail-recurring"
+    case doFirst = "ui.do-first"
+    case pin = "ui.pin"
+    case unpin = "ui.unpin"
+    case details = "ui.details"
+    case disclosureRight = "ui.disclosure-right"
+    case pagerPrevious = "ui.pager-previous"
+    case pagerNext = "ui.pager-next"
+    case expand = "ui.expand"
+    case collapse = "ui.collapse"
+    case notePresent = "ui.note-present"
+    case placeholder = "ui.placeholder"
+    case completed = "ui.completed"
+    case completedOutline = "ui.completed-outline"
+    case dragHandle = "ui.drag-handle"
+    case delete = "ui.delete"
+    case duplicate = "ui.duplicate"
+    case close = "ui.close"
+    case microphone = "ui.microphone"
+    case more = "ui.more"
+    case check = "ui.check"
+    case sentimentGreat = "ui.sentiment-great"
+    case sentimentFocused = "ui.sentiment-focused"
+    case sentimentOkay = "ui.sentiment-okay"
+    case sentimentTired = "ui.sentiment-tired"
+    case sentimentStressed = "ui.sentiment-stressed"
+
+    var assetName: String {
+        rawValue.replacingOccurrences(of: ".", with: "-")
+    }
+
+    var assetAccessibilityLabel: String {
+        switch self {
+        case .quickAddOpen:
+            return "Open quick add"
+        case .quickAddClose:
+            return "Close quick add"
+        case .railSplit:
+            return "Split"
+        case .railRecovery:
+            return "Recovery"
+        case .railRecurring:
+            return "Recurring"
+        case .doFirst:
+            return "Do first"
+        case .pin:
+            return "Pin"
+        case .unpin:
+            return "Unpin"
+        case .details:
+            return "Details"
+        case .disclosureRight:
+            return "Open details"
+        case .pagerPrevious:
+            return "Previous"
+        case .pagerNext:
+            return "Next"
+        case .expand:
+            return "Expand"
+        case .collapse:
+            return "Collapse"
+        case .notePresent:
+            return "Has note"
+        case .placeholder:
+            return "Pending"
+        case .completed:
+            return "Completed"
+        case .completedOutline:
+            return "Ready to complete"
+        case .dragHandle:
+            return "Reorder"
+        case .delete:
+            return "Delete"
+        case .duplicate:
+            return "Duplicate"
+        case .close:
+            return "Close"
+        case .microphone:
+            return "Voice entry"
+        case .more:
+            return "More actions"
+        case .check:
+            return "Confirmed"
+        case .sentimentGreat:
+            return "Great"
+        case .sentimentFocused:
+            return "Focused"
+        case .sentimentOkay:
+            return "Okay"
+        case .sentimentTired:
+            return "Tired"
+        case .sentimentStressed:
+            return "Stressed"
+        }
+    }
+}
+
+enum OneAppIconKey: Sendable, Hashable, OneAssetCatalogKey {
+    case semantic(OneIconKey)
+    case ui(OneUIIconKey)
+
+    var assetName: String {
+        switch self {
+        case .semantic(let key):
+            return key.assetName
+        case .ui(let key):
+            return key.assetName
+        }
+    }
+
+    var assetAccessibilityLabel: String {
+        switch self {
+        case .semantic(let key):
+            return key.assetAccessibilityLabel
+        case .ui(let key):
+            return key.assetAccessibilityLabel
+        }
+    }
+}
+
 #if canImport(SwiftUI)
 import SwiftUI
 #if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
 #endif
 
 public enum OneIconBadgeShape {
@@ -428,15 +570,73 @@ public enum OneIconBadgeShape {
     case capsule
 }
 
+enum OneIconAssetCatalog {
+    static let scopedKeys: [OneIconKey] = OneIconKey.allCases
+    static let uiKeys: [OneUIIconKey] = OneUIIconKey.allCases
+
+    static func assetName(for key: OneIconKey) -> String {
+        key.assetName
+    }
+
+    static func assetName(for key: OneUIIconKey) -> String {
+        key.assetName
+    }
+
+    static func assetName(for key: OneAppIconKey) -> String {
+        key.assetName
+    }
+}
+
+#if canImport(UIKit)
+@MainActor
+enum OnePlatformImageLoader {
+    static func image(for key: OneAppIconKey) -> UIImage? {
+        UIImage(named: key.assetName, in: .module, compatibleWith: nil)
+    }
+
+    static func image(for key: OneIconKey) -> UIImage? {
+        image(for: .semantic(key))
+    }
+
+    static func image(for key: OneUIIconKey) -> UIImage? {
+        image(for: .ui(key))
+    }
+}
+#elseif canImport(AppKit)
+enum OnePlatformImageLoader {
+    static func image(for key: OneAppIconKey) -> NSImage? {
+        Bundle.module.image(forResource: NSImage.Name(key.assetName))
+    }
+
+    static func image(for key: OneIconKey) -> NSImage? {
+        image(for: .semantic(key))
+    }
+
+    static func image(for key: OneUIIconKey) -> NSImage? {
+        image(for: .ui(key))
+    }
+}
+#endif
+
 public enum OneIconImageFactory {
     @MainActor
     public static func tabBarImage(for key: OneIconKey) -> Image {
         #if canImport(UIKit)
+        if let image = OnePlatformImageLoader.image(for: key)?.withRenderingMode(.alwaysTemplate) {
+            return Image(uiImage: image)
+        }
         if let image = OneTabBarIconRasterCache.image(for: key) {
             return Image(uiImage: image)
         }
+        return Image(uiImage: UIImage())
+        #elseif canImport(AppKit)
+        if let image = OnePlatformImageLoader.image(for: key) {
+            return Image(nsImage: image)
+        }
+        return Image(nsImage: NSImage(size: NSSize(width: 1, height: 1)))
+        #else
+        return Image(decorative: "")
         #endif
-        return Image(systemName: key.tabBarFallbackSystemName)
     }
 }
 
@@ -462,13 +662,64 @@ public struct OneIcon: View {
     }
 
     public var body: some View {
-        OneIconGlyph(
-            key: key,
-            tint: tint ?? palette.symbol,
-            lineWidth: lineWidth ?? max(1.8, size * 0.095)
-        )
+        Group {
+            if OnePlatformImageLoader.image(for: key) != nil {
+                OneAppIconAssetView(
+                    key: .semantic(key),
+                    tint: tint ?? palette.symbol
+                )
+            } else {
+                OneIconGlyph(
+                    key: key,
+                    tint: tint ?? palette.symbol,
+                    lineWidth: lineWidth ?? max(1.8, size * 0.095)
+                )
+            }
+        }
         .frame(width: size, height: size)
         .accessibilityLabel(key.accessibilityLabel)
+    }
+}
+
+struct OneAppIcon: View {
+    let key: OneAppIconKey
+    var size: CGFloat
+    var tint: Color?
+
+    init(
+        key: OneAppIconKey,
+        size: CGFloat = 18,
+        tint: Color? = nil
+    ) {
+        self.key = key
+        self.size = size
+        self.tint = tint
+    }
+
+    var body: some View {
+        Group {
+            if OnePlatformImageLoader.image(for: key) != nil {
+                OneAppIconAssetView(
+                    key: key,
+                    tint: tint
+                )
+            } else {
+                switch key {
+                case .semantic(let semanticKey):
+                    OneIconGlyph(
+                        key: semanticKey,
+                        tint: tint ?? .primary,
+                        lineWidth: max(1.8, size * 0.095)
+                    )
+                case .ui:
+                    OneUIIconFallbackView(
+                        tint: tint ?? .secondary
+                    )
+                }
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityLabel(key.assetAccessibilityLabel)
     }
 }
 
@@ -543,6 +794,159 @@ public struct OneBrandMark: View {
     }
 
     public var body: some View {
+        Group {
+            if OneBrandMarkAssetView.isAvailable {
+                OneBrandMarkAssetView()
+            } else {
+                OneBrandMarkFallback(size: size)
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityLabel(OneIconKey.brandMark.accessibilityLabel)
+    }
+}
+
+#if canImport(UIKit)
+@MainActor
+private enum OneTabBarIconRasterCache {
+    static var cache: [OneIconKey: UIImage] = [:]
+
+    static func image(for key: OneIconKey) -> UIImage? {
+        if let cached = cache[key] {
+            return cached
+        }
+
+        if let image = OnePlatformImageLoader.image(for: key)?.withRenderingMode(.alwaysTemplate) {
+            cache[key] = image
+            return image
+        }
+
+        let renderer = ImageRenderer(
+            content: OneIcon(
+                key: key,
+                palette: OneTheme.palette(for: .light),
+                size: 22,
+                tint: .black
+            )
+            .frame(width: 24, height: 24)
+        )
+        renderer.scale = UIScreen.main.scale
+
+        guard let image = renderer.uiImage?.withRenderingMode(.alwaysTemplate) else {
+            return nil
+        }
+
+        cache[key] = image
+        return image
+    }
+}
+#endif
+
+private struct OneIconAssetView: View {
+    let key: OneIconKey
+    let tint: Color
+
+    static func isAvailable(for key: OneIconKey) -> Bool {
+        #if canImport(UIKit) || canImport(AppKit)
+        OnePlatformImageLoader.image(for: key) != nil
+        #else
+        false
+        #endif
+    }
+
+    @ViewBuilder
+    var body: some View {
+        #if canImport(UIKit)
+        if let image = OnePlatformImageLoader.image(for: key) {
+            Image(uiImage: image)
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(tint)
+        }
+        #elseif canImport(AppKit)
+        if let image = OnePlatformImageLoader.image(for: key) {
+            Image(nsImage: image)
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(tint)
+        }
+        #endif
+    }
+}
+
+private struct OneAppIconAssetView: View {
+    let key: OneAppIconKey
+    let tint: Color?
+
+    @ViewBuilder
+    private func rendered(_ image: Image) -> some View {
+        if let tint {
+            image
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(tint)
+        } else {
+            image
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+        }
+    }
+
+    @ViewBuilder
+    var body: some View {
+        #if canImport(UIKit)
+        if let image = OnePlatformImageLoader.image(for: key) {
+            rendered(Image(uiImage: image))
+        }
+        #elseif canImport(AppKit)
+        if let image = OnePlatformImageLoader.image(for: key) {
+            rendered(Image(nsImage: image))
+        }
+        #endif
+    }
+}
+
+private struct OneUIIconFallbackView: View {
+    let tint: Color
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 4, style: .continuous)
+            .stroke(tint.opacity(0.8), lineWidth: 1.8)
+            .padding(2)
+    }
+}
+
+private struct OneBrandMarkAssetView: View {
+    static var isAvailable: Bool {
+        OnePlatformImageLoader.image(for: .brandMark) != nil
+    }
+
+    @ViewBuilder
+    var body: some View {
+        #if canImport(UIKit)
+        if let image = OnePlatformImageLoader.image(for: .brandMark) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+        }
+        #elseif canImport(AppKit)
+        if let image = OnePlatformImageLoader.image(for: .brandMark) {
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFit()
+        }
+        #endif
+    }
+}
+
+private struct OneBrandMarkFallback: View {
+    let size: CGFloat
+
+    var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
                 .fill(
@@ -603,40 +1007,8 @@ public struct OneBrandMark: View {
                 )
                 .offset(y: size * 0.25)
         }
-        .frame(width: size, height: size)
     }
 }
-
-#if canImport(UIKit)
-@MainActor
-private enum OneTabBarIconRasterCache {
-    static var cache: [OneIconKey: UIImage] = [:]
-
-    static func image(for key: OneIconKey) -> UIImage? {
-        if let cached = cache[key] {
-            return cached
-        }
-
-        let renderer = ImageRenderer(
-            content: OneIcon(
-                key: key,
-                palette: OneTheme.palette(for: .light),
-                size: 22,
-                tint: .black
-            )
-            .frame(width: 24, height: 24)
-        )
-        renderer.scale = UIScreen.main.scale
-
-        guard let image = renderer.uiImage?.withRenderingMode(.alwaysTemplate) else {
-            return nil
-        }
-
-        cache[key] = image
-        return image
-    }
-}
-#endif
 
 private struct OneIconGlyph: View {
     let key: OneIconKey

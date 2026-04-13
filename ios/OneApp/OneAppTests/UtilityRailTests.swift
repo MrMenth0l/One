@@ -17,11 +17,11 @@ final class UtilityRailTests: XCTestCase {
     func testFinanceRailItemsMatchPlannedOrder() {
         XCTAssertEqual(
             FinanceUtilityRailSection.railItems.map(\.title),
-            ["Home", "Transactions", "Reports", "Recurring", "Categories"]
+            ["Home", "Overview", "Analysis", "Transactions", "Recurring", "Categories"]
         )
         XCTAssertEqual(
             FinanceUtilityRailSection.railItems.map(\.id),
-            [.home, .transactions, .reports, .recurring, .categories]
+            [.home, .overview, .analysis, .transactions, .recurring, .categories]
         )
     }
 
@@ -62,17 +62,17 @@ final class UtilityRailTests: XCTestCase {
     func testUtilityRailResolverAdvancesAfterCrossingIntoNextSection() {
         let sections = [
             OneUtilityRailSectionObservation(id: FinanceUtilityRailSection.home, minY: 0, maxY: 210),
-            OneUtilityRailSectionObservation(id: FinanceUtilityRailSection.transactions, minY: 230, maxY: 480),
-            OneUtilityRailSectionObservation(id: FinanceUtilityRailSection.reports, minY: 500, maxY: 820),
+            OneUtilityRailSectionObservation(id: FinanceUtilityRailSection.overview, minY: 230, maxY: 480),
+            OneUtilityRailSectionObservation(id: FinanceUtilityRailSection.analysis, minY: 500, maxY: 820),
         ]
 
         let resolved = OneUtilityRailSectionResolver.resolve(
-            current: .transactions,
+            current: .overview,
             sections: sections,
             activationY: 540,
             hysteresis: OneUtilityRailMetrics.hysteresis
         )
 
-        XCTAssertEqual(resolved, .reports)
+        XCTAssertEqual(resolved, .analysis)
     }
 }

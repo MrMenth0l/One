@@ -1,0 +1,285 @@
+{
+  "semantic": {
+    "brand.mark": {
+      "mode": "preserve"
+    },
+    "nav.today": {
+      "source": "list-todo.svg"
+    },
+    "nav.review": {
+      "source": "notebook-pen.svg"
+    },
+    "nav.finance": {
+      "source": "credit-card.svg"
+    },
+    "nav.settings": {
+      "source": "settings.svg"
+    },
+    "product.task": {
+      "source": "list-todo.svg"
+    },
+    "product.habit": {
+      "source": "repeat.svg"
+    },
+    "product.note": {
+      "source": "notebook-pen.svg"
+    },
+    "product.reflection": {
+      "source": "message-square.svg"
+    },
+    "product.coach": {
+      "source": "brain.svg"
+    },
+    "product.bible-verse": {
+      "source": "book-open-text.svg"
+    },
+    "product.analytics": {
+      "source": "chart-column.svg"
+    },
+    "product.progress": {
+      "source": "chart-line.svg"
+    },
+    "product.streak": {
+      "source": "flame.svg"
+    },
+    "review.daily": {
+      "source": "calendar-1.svg"
+    },
+    "review.weekly": {
+      "source": "calendar-range.svg"
+    },
+    "review.monthly": {
+      "source": "calendar-days.svg"
+    },
+    "review.yearly": {
+      "source": "calendars.svg"
+    },
+    "support.notifications": {
+      "source": "bell-ring.svg"
+    },
+    "support.profile": {
+      "source": "circle-user.svg"
+    },
+    "category.generic": {
+      "source": "folder.svg"
+    },
+    "category.gym": {
+      "source": "dumbbell.svg"
+    },
+    "category.school": {
+      "source": "graduation-cap.svg"
+    },
+    "category.projects": {
+      "source": "lightbulb.svg"
+    },
+    "category.wellbeing": {
+      "source": "leaf.svg"
+    },
+    "category.life-admin": {
+      "source": "briefcase.svg"
+    },
+    "category.faith": {
+      "source": "book-heart.svg"
+    },
+    "category.finance": {
+      "source": "wallet-cards.svg"
+    },
+    "finance.category": {
+      "source": "wallet.svg"
+    },
+    "finance.food": {
+      "source": "utensils.svg"
+    },
+    "finance.transport": {
+      "source": "bus.svg"
+    },
+    "finance.shopping": {
+      "source": "shopping-bag.svg"
+    },
+    "finance.entertainment": {
+      "source": "tv.svg"
+    },
+    "finance.subscriptions": {
+      "source": "repeat.svg"
+    },
+    "finance.bills": {
+      "source": "receipt.svg"
+    },
+    "finance.health": {
+      "source": "stethoscope.svg"
+    },
+    "finance.education": {
+      "source": "graduation-cap.svg"
+    },
+    "finance.gifts": {
+      "source": "gift.svg"
+    },
+    "finance.savings": {
+      "source": "piggy-bank.svg"
+    },
+    "finance.misc": {
+      "source": "circle-question-mark.svg"
+    },
+    "finance.income": {
+      "source": "banknote-arrow-up.svg"
+    },
+    "finance.expense": {
+      "source": "banknote-arrow-down.svg"
+    },
+    "finance.transfer": {
+      "source": "arrow-right-left.svg"
+    },
+    "finance.transaction": {
+      "source": "receipt-text.svg"
+    },
+    "state.completed-day": {
+      "source": "circle-check-big.svg"
+    },
+    "state.incomplete-day": {
+      "source": "circle.svg"
+    },
+    "state.milestone": {
+      "source": "goal.svg"
+    },
+    "state.streak-maintained": {
+      "source": "flame.svg"
+    },
+    "state.streak-broken": {
+      "source": "flame-kindling.svg"
+    },
+    "state.note-added": {
+      "source": "square-pen.svg"
+    },
+    "state.reflection-completed": {
+      "source": "message-square-check.svg"
+    },
+    "state.no-data": {
+      "source": "chart-no-axes-column.svg"
+    },
+    "state.no-notes": {
+      "source": "notebook-text.svg"
+    },
+    "state.no-habits": {
+      "source": "repeat.svg"
+    },
+    "state.no-transactions": {
+      "source": "wallet-minimal.svg"
+    },
+    "state.coach-insight": {
+      "source": "brain-circuit.svg"
+    },
+    "state.reminder": {
+      "source": "bell-ring.svg"
+    },
+    "state.success": {
+      "source": "badge-check.svg"
+    },
+    "state.warning": {
+      "source": "triangle-alert.svg"
+    },
+    "state.error": {
+      "source": "circle-alert.svg"
+    },
+    "state.offline": {
+      "source": "wifi-off.svg"
+    },
+    "state.sync": {
+      "source": "refresh-cw.svg"
+    },
+    "state.archive": {
+      "source": "archive.svg"
+    }
+  },
+  "ui": {
+    "ui.quick-add-open": {
+      "source": "circle-plus.svg"
+    },
+    "ui.quick-add-close": {
+      "source": "circle-x.svg"
+    },
+    "ui.rail-split": {
+      "source": "table-columns-split.svg"
+    },
+    "ui.rail-recovery": {
+      "source": "refresh-ccw.svg"
+    },
+    "ui.rail-recurring": {
+      "source": "repeat.svg"
+    },
+    "ui.do-first": {
+      "source": "circle-arrow-up.svg"
+    },
+    "ui.pin": {
+      "source": "pin.svg"
+    },
+    "ui.unpin": {
+      "source": "pin-off.svg"
+    },
+    "ui.details": {
+      "source": "square-arrow-out-up-right.svg"
+    },
+    "ui.disclosure-right": {
+      "source": "chevron-right.svg"
+    },
+    "ui.pager-previous": {
+      "source": "circle-chevron-left.svg"
+    },
+    "ui.pager-next": {
+      "source": "circle-chevron-right.svg"
+    },
+    "ui.expand": {
+      "source": "chevron-down.svg"
+    },
+    "ui.collapse": {
+      "source": "chevron-up.svg"
+    },
+    "ui.note-present": {
+      "source": "circle-dot.svg"
+    },
+    "ui.placeholder": {
+      "source": "circle.svg"
+    },
+    "ui.completed": {
+      "source": "circle-check-big.svg"
+    },
+    "ui.completed-outline": {
+      "source": "circle-check.svg"
+    },
+    "ui.drag-handle": {
+      "source": "grip-horizontal.svg"
+    },
+    "ui.delete": {
+      "source": "trash-2.svg"
+    },
+    "ui.duplicate": {
+      "source": "copy-plus.svg"
+    },
+    "ui.close": {
+      "source": "x.svg"
+    },
+    "ui.microphone": {
+      "source": "mic.svg"
+    },
+    "ui.more": {
+      "source": "circle-ellipsis.svg"
+    },
+    "ui.check": {
+      "source": "check.svg"
+    },
+    "ui.sentiment-great": {
+      "source": "sun-medium.svg"
+    },
+    "ui.sentiment-focused": {
+      "source": "focus.svg"
+    },
+    "ui.sentiment-okay": {
+      "source": "circle-dot.svg"
+    },
+    "ui.sentiment-tired": {
+      "source": "moon-star.svg"
+    },
+    "ui.sentiment-stressed": {
+      "source": "triangle-alert.svg"
+    }
+  }
+}

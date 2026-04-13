@@ -219,6 +219,12 @@ class TodayOrderOverrideRepository:
     def __init__(self, db: Session):
         self.db = db
 
+    def list_for_user(self, user_id: str) -> list[models.TodayOrderOverrideModel]:
+        stmt = select(models.TodayOrderOverrideModel).where(
+            models.TodayOrderOverrideModel.user_id == user_id
+        )
+        return list(self.db.execute(stmt).scalars().all())
+
     def list_for_date(self, user_id: str, target: date) -> list[models.TodayOrderOverrideModel]:
         stmt = select(models.TodayOrderOverrideModel).where(
             and_(

@@ -138,7 +138,10 @@ struct FinanceTabView: View {
                     Button {
                         sheetRoute = .voice
                     } label: {
-                        Image(systemName: "mic.fill")
+                        OneAppIcon(
+                            key: .ui(.microphone),
+                            size: 18
+                        )
                     }
                 }
             }
@@ -269,13 +272,17 @@ struct FinanceTabView: View {
                 financePage {
                     homePageContent(snapshot: homeSnapshot)
                 }
+            case .overview:
+                financePage {
+                    overviewSection
+                }
+            case .analysis:
+                financePage {
+                    analysisSection
+                }
             case .transactions:
                 financePage {
                     transactionsSection
-                }
-            case .reports:
-                financePage {
-                    reportsSection
                 }
             case .recurring:
                 financePage {
@@ -318,19 +325,21 @@ struct FinanceTabView: View {
 
     @ViewBuilder
     private func homePageContent(snapshot: FinanceHomeSnapshot) -> some View {
-        FinanceBalanceCard(
+        FinanceHomeSummaryCard(
             palette: palette,
             snapshot: snapshot,
-            needsSetup: viewModel.needsBalanceSetup
-        ) {
-            sheetRoute = .balance
-        }
-        FinanceWeeklyPaceCard(palette: palette, snapshot: snapshot)
-        if !snapshot.warnings.isEmpty {
-            ForEach(snapshot.warnings) { warning in
-                FinanceWarningCard(palette: palette, warning: warning)
+            health: snapshot.cashflowHealth,
+            needsSetup: viewModel.needsBalanceSetup,
+            onAdjustBalance: {
+                sheetRoute = .balance
+            },
+            onOpenOverview: {
+                OneHaptics.shared.trigger(.selectionChanged)
+                withAnimation(OneMotion.animation(.stateChange, reduceMotion: reduceMotion)) {
+                    activeRailSection = .overview
+                }
             }
-        }
+        )
     }
 
     private func openCreateTransaction(for action: OneAddAction = .expense) {
@@ -512,167 +521,129 @@ struct FinanceTabView: View {
         }
     }
 
-    private var reportsSection: some View {
+    private var overviewSection: some View {
         VStack(spacing: OneSpacing.md) {
             OneSurfaceCard(palette: palette) {
                 HStack(alignment: .firstTextBaseline, spacing: OneSpacing.sm) {
-                    OneSectionHeading(palette: palette, title: "Reports", meta: displayedPeriod.title)
+                    OneSectionHeading(palette: palette, title: "Overview", meta: "Operational")
                     Spacer()
-                    NavigationLink("Open report") {
-                        FinanceAnalyticsScreen(viewModel: viewModel, weekStart: weekStart)
+                    Button("Open analysis") {
+                        OneHaptics.shared.trigger(.selectionChanged)
+                        withAnimation(OneMotion.animation(.stateChange, reduceMotion: reduceMotion)) {
+                            activeRailSection = .analysis
+                        }
                     }
                     .font(OneType.label)
                     .foregroundStyle(palette.accent)
                 }
+                Text("Overview holds the supporting finance signals that do not belong on Home. Analysis is where you inspect period behavior and deeper patterns.")
+                    .font(OneType.secondary)
+                    .foregroundStyle(palette.subtext)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
-                OneSegmentedControl(
+            if let snapshot = viewModel.homeSnapshot {
+                if !snapshot.attentionSignals.isEmpty {
+                    FinanceAttentionSignalsCard(
+                        palette: palette,
+                        signals: snapshot.attentionSignals,
+                        currencyCode: currencyCode
+                    )
+                } else if !snapshot.warnings.isEmpty {
+                    ForEach(snapshot.warnings) { warning in
+                        FinanceWarningCard(palette: palette, warning: warning)
+                    }
+                }
+
+                if let safeToSpend = snapshot.safeToSpend {
+                    FinanceSafeToSpendCard(
+                        palette: palette,
+                        summary: safeToSpend,
+                        currencyCode: currencyCode,
+                        actionTitle: nil,
+                        action: nil
+                    )
+                }
+
+                if let recurringPressure = snapshot.recurringPressure {
+                    FinanceRecurringPressureCard(
+                        palette: palette,
+                        summary: recurringPressure,
+                        overview: viewModel.recurringOverview,
+                        currencyCode: currencyCode,
+                        actionTitle: "Open recurring"
+                    ) {
+                        OneHaptics.shared.trigger(.selectionChanged)
+                        withAnimation(OneMotion.animation(.stateChange, reduceMotion: reduceMotion)) {
+                            activeRailSection = .recurring
+                        }
+                    }
+                }
+
+                if !snapshot.categoryDrift.isEmpty {
+                    FinanceCategoryPressureCard(
+                        palette: palette,
+                        categories: snapshot.categoryDrift,
+                        currencyCode: currencyCode
+                    ) {
+                        OneHaptics.shared.trigger(.selectionChanged)
+                        withAnimation(OneMotion.animation(.stateChange, reduceMotion: reduceMotion)) {
+                            activeRailSection = .analysis
+                        }
+                    }
+                }
+
+                FinanceTodayPreviewCard(
                     palette: palette,
-                    options: FinanceAnalyticsPeriod.allCases,
-                    selection: displayedPeriod,
-                    title: { $0.title }
-                ) { selection in
-                    Task {
-                        await viewModel.selectAnalyticsPeriod(selection, weekStart: weekStart)
-                    }
-                }
-                if viewModel.isSwitchingAnalyticsPeriod {
-                    HStack(spacing: OneSpacing.sm) {
-                        ProgressView()
-                            .tint(palette.accent)
-                        Text("Updating \(displayedPeriod.title.lowercased()) report")
-                            .font(OneType.secondary)
-                            .foregroundStyle(palette.subtext)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    snapshot: snapshot,
+                    categories: viewModel.categories
+                ) {
+                    isShowingAddOptions = true
                 }
             }
+        }
+    }
 
-            if let snapshot = viewModel.analyticsSnapshot {
-                OneGlassCard(palette: palette) {
-                    Text(snapshot.period.title + " cashflow")
-                        .font(OneType.label)
-                        .foregroundStyle(palette.subtext)
-                    Text(snapshot.insightMessage)
-                        .font(OneType.title)
-                        .foregroundStyle(palette.text)
-                        .fixedSize(horizontal: false, vertical: true)
-                    HStack(spacing: 10) {
-                        FinanceMetricTile(
-                            palette: palette,
-                            title: "Spent",
-                            value: FinanceFormat.currency(snapshot.totalSpent, code: currencyCode)
-                        )
-                        FinanceMetricTile(
-                            palette: palette,
-                            title: "Income",
-                            value: FinanceFormat.currency(snapshot.totalIncome, code: currencyCode)
-                        )
-                        FinanceMetricTile(
-                            palette: palette,
-                            title: "Net",
-                            value: FinanceFormat.currency(snapshot.netMovement, code: currencyCode)
-                        )
-                    }
-                    FinanceEquationStrip(
-                        palette: palette,
-                        leading: "Net",
-                        equation: "\(FinanceFormat.currency(snapshot.totalIncome, code: currencyCode)) - \(FinanceFormat.currency(snapshot.totalSpent, code: currencyCode))",
-                        result: FinanceFormat.currency(snapshot.netMovement, code: currencyCode)
-                    )
-                }
-
-                OneSurfaceCard(palette: palette) {
-                    OneSectionHeading(palette: palette, title: "Cashflow Trend", meta: snapshot.period.title)
-                    if snapshot.chartPoints.isEmpty {
-                        Text("Cash movement appears here once this range has income or spending.")
-                            .font(OneType.secondary)
-                            .foregroundStyle(palette.subtext)
-                    } else {
-                        FinanceCashflowTrendChart(
-                            palette: palette,
-                            points: snapshot.chartPoints,
-                            currencyCode: currencyCode
-                        )
-                        Text("Bars compare spent vs income. The line tracks net movement for each bucket.")
-                            .font(OneType.secondary)
-                            .foregroundStyle(palette.subtext)
-                    }
-                }
-
-                OneSurfaceCard(palette: palette) {
-                    OneSectionHeading(palette: palette, title: "Category Share", meta: nil)
-                    if snapshot.topCategories.isEmpty {
-                        Text("Category share appears after the first tracked expenses.")
-                            .font(OneType.secondary)
-                            .foregroundStyle(palette.subtext)
-                    } else {
-                        FinanceTableHeader(
-                            palette: palette,
-                            columns: ["Category", "Amount", "Share"]
-                        )
-                        ForEach(snapshot.topCategories) { category in
-                            FinanceCategoryShareRow(
-                                palette: palette,
-                                category: category,
-                                currencyCode: currencyCode,
-                                share: snapshot.totalSpent == 0 ? 0 : category.amount / snapshot.totalSpent
-                            )
+    private var analysisSection: some View {
+        VStack(spacing: OneSpacing.md) {
+            OneSurfaceCard(palette: palette) {
+                HStack(alignment: .firstTextBaseline, spacing: OneSpacing.sm) {
+                    OneSectionHeading(palette: palette, title: "Analysis", meta: displayedPeriod.title)
+                    Spacer()
+                    Button("Back to overview") {
+                        OneHaptics.shared.trigger(.selectionChanged)
+                        withAnimation(OneMotion.animation(.stateChange, reduceMotion: reduceMotion)) {
+                            activeRailSection = .overview
                         }
                     }
+                    .font(OneType.label)
+                    .foregroundStyle(palette.accent)
                 }
-
-                OneSurfaceCard(palette: palette) {
-                    OneSectionHeading(palette: palette, title: "Comparison", meta: "Current versus prior references")
-                    if snapshot.comparisonPoints.isEmpty {
-                        Text("Comparison rows appear after more history builds up.")
-                            .font(OneType.secondary)
-                            .foregroundStyle(palette.subtext)
-                    } else {
-                        FinanceTableHeader(
-                            palette: palette,
-                            columns: ["Period", "Spent", "Income", "Net"]
-                        )
-                        ForEach(Array(snapshot.comparisonPoints.enumerated()), id: \.element.id) { index, point in
-                            FinanceComparisonRow(
-                                palette: palette,
-                                point: point,
-                                previousPoint: index > 0 ? snapshot.comparisonPoints[index - 1] : nil,
-                                currencyCode: currencyCode
-                            )
-                        }
-                    }
-                }
-
-                OneSurfaceCard(palette: palette) {
-                    OneSectionHeading(palette: palette, title: "Projection & Recurring", meta: snapshot.period == .month ? "Month outlook" : "Fixed burden")
-                    if let projected = snapshot.projectedMonthSpend {
-                        FinanceEquationStrip(
-                            palette: palette,
-                            leading: "Projected Spend",
-                            equation: "Current pace extrapolated",
-                            result: FinanceFormat.currency(projected, code: currencyCode)
-                        )
-                    }
-                    FinanceEquationStrip(
-                        palette: palette,
-                        leading: "Recurring Burden",
-                        equation: snapshot.period == .year ? "Annualized fixed items" : "Monthly fixed items",
-                        result: FinanceFormat.currency(snapshot.recurringBurden, code: currencyCode)
-                    )
-                }
-            } else {
-                OneSurfaceCard(palette: palette) {
-                    Text("Reports will appear here once finance analytics finish loading.")
-                        .font(OneType.secondary)
-                        .foregroundStyle(palette.subtext)
-                }
+                Text("Analysis is for period comparison, category drift inspection, commitment study, and safe-to-spend reasoning.")
+                    .font(OneType.secondary)
+                    .foregroundStyle(palette.subtext)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+
+            FinanceAnalyticsWorkspace(viewModel: viewModel, weekStart: weekStart)
         }
     }
 
     private var recurringSection: some View {
         VStack(spacing: OneSpacing.md) {
             if let overview = viewModel.recurringOverview {
+                if let recurringPressure = viewModel.homeSnapshot?.recurringPressure {
+                    FinanceRecurringPressureCard(
+                        palette: palette,
+                        summary: recurringPressure,
+                        overview: overview,
+                        currencyCode: currencyCode,
+                        actionTitle: "Review commitments"
+                    ) {
+                        OneHaptics.shared.trigger(.selectionChanged)
+                    }
+                }
+
                 OneGlassCard(palette: palette) {
                     HStack(alignment: .firstTextBaseline, spacing: OneSpacing.sm) {
                         Text("Recurring")
@@ -773,9 +744,11 @@ struct FinanceTabView: View {
                                             }
                                         }
                                     } label: {
-                                        Image(systemName: "ellipsis.circle")
-                                            .font(.system(size: 18, weight: .semibold))
-                                            .foregroundStyle(palette.subtext)
+                                        OneAppIcon(
+                                            key: .ui(.more),
+                                            size: 18,
+                                            tint: palette.subtext
+                                        )
                                     }
                                 }
                             }
@@ -894,6 +867,534 @@ private struct FinanceBalanceCard: View {
                 }
             }
         }
+    }
+}
+
+private struct FinanceStatusBadge: View {
+    let palette: OneTheme.Palette
+    let label: String
+    let tone: FinanceHealthStatus
+
+    private var tint: Color {
+        switch tone {
+        case .resilient:
+            return palette.success
+        case .steady:
+            return palette.accent
+        case .pressured:
+            return palette.warning
+        case .critical:
+            return palette.danger
+        }
+    }
+
+    var body: some View {
+        Text(label.uppercased())
+            .font(OneType.caption.weight(.semibold))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: OneTheme.radiusSmall, style: .continuous)
+                    .fill(tint.opacity(0.12))
+            )
+    }
+}
+
+private struct FinanceHomeSummaryCard: View {
+    let palette: OneTheme.Palette
+    let snapshot: FinanceHomeSnapshot
+    let health: FinanceCashflowHealth?
+    let needsSetup: Bool
+    let onAdjustBalance: () -> Void
+    let onOpenOverview: () -> Void
+
+    private var currencyCode: String {
+        snapshot.balanceState.defaultCurrencyCode
+    }
+
+    var body: some View {
+        OneGlassCard(palette: palette, padding: 22) {
+            Text("Home")
+                .font(OneType.label)
+                .foregroundStyle(palette.subtext)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Current balance")
+                    .font(OneType.caption.weight(.semibold))
+                    .foregroundStyle(palette.subtext)
+                Text(FinanceFormat.currency(snapshot.balanceState.totalBalance, code: currencyCode))
+                    .font(.system(size: 38, weight: .bold, design: .rounded))
+                    .foregroundStyle(palette.text)
+                    .minimumScaleFactor(0.82)
+                Text("Card \(FinanceFormat.currency(snapshot.balanceState.cardBalance, code: currencyCode))  ·  Cash \(FinanceFormat.currency(snapshot.balanceState.cashBalance, code: currencyCode))")
+                    .font(OneType.secondary)
+                    .foregroundStyle(palette.subtext)
+            }
+
+            Divider()
+                .overlay(palette.border)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Financial health")
+                    .font(OneType.caption.weight(.semibold))
+                    .foregroundStyle(palette.subtext)
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(health.map { "\($0.score)" } ?? "—")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .foregroundStyle(palette.text)
+                    if let health {
+                        FinanceStatusBadge(palette: palette, label: health.status.title, tone: health.status)
+                    }
+                }
+                Text(health?.headline ?? "Financial health score will appear after more finance activity is recorded.")
+                    .font(OneType.secondary)
+                    .foregroundStyle(palette.subtext)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: 10) {
+                Button(needsSetup ? "Set balance" : "Adjust balance") {
+                    onAdjustBalance()
+                }
+                .font(OneType.label)
+                .foregroundStyle(palette.accent)
+
+                Spacer()
+
+                Button("Open overview") {
+                    onOpenOverview()
+                }
+                .font(OneType.label.weight(.semibold))
+                .foregroundStyle(palette.text)
+            }
+        }
+    }
+}
+
+private struct FinanceCashflowControlHeroCard: View {
+    let palette: OneTheme.Palette
+    let health: FinanceCashflowHealth
+    let safeToSpend: FinanceSafeToSpendSummary?
+    let currencyCode: String
+    let onAdjustBalance: () -> Void
+    let onOpenAnalysis: () -> Void
+
+    var body: some View {
+        OneGlassCard(palette: palette, padding: OneSpacing.lg) {
+            HStack(alignment: .top, spacing: OneSpacing.md) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Cashflow health")
+                        .font(OneType.label)
+                        .foregroundStyle(palette.subtext)
+                    Text(health.headline)
+                        .font(OneType.largeTitle)
+                        .foregroundStyle(palette.text)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 12)
+                VStack(alignment: .trailing, spacing: 10) {
+                    FinanceStatusBadge(palette: palette, label: health.status.title, tone: health.status)
+                    Text("\(health.score)")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundStyle(palette.text)
+                    Text("score")
+                        .font(OneType.caption)
+                        .foregroundStyle(palette.subtext)
+                }
+            }
+
+            Text(health.message)
+                .font(OneType.secondary)
+                .foregroundStyle(palette.subtext)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 10) {
+                FinanceMetricTile(
+                    palette: palette,
+                    title: "Free cash",
+                    value: FinanceFormat.currency(health.freeCashflow, code: currencyCode)
+                )
+                FinanceMetricTile(
+                    palette: palette,
+                    title: "Projected",
+                    value: FinanceFormat.currency(health.projectedBalance, code: currencyCode)
+                )
+                FinanceMetricTile(
+                    palette: palette,
+                    title: "Runway",
+                    value: health.runwayDays >= 365 ? "Stable" : "\(health.runwayDays)d"
+                )
+            }
+
+            FinanceEquationStrip(
+                palette: palette,
+                leading: "Control logic",
+                equation: "Projected balance after current pace and scheduled charges",
+                result: "Reserve \(FinanceFormat.currency(health.reserveFloor, code: currencyCode))"
+            )
+
+            if let safeToSpend {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Safe to spend now")
+                            .font(OneType.caption.weight(.semibold))
+                            .foregroundStyle(palette.subtext)
+                        Text(FinanceFormat.currency(safeToSpend.amount, code: currencyCode))
+                            .font(.system(size: 24, weight: .semibold, design: .rounded))
+                            .foregroundStyle(palette.text)
+                    }
+                    Spacer()
+                    Text("\(FinanceFormat.currency(safeToSpend.dailyAllowance, code: currencyCode)) / day")
+                        .font(OneType.body.weight(.semibold))
+                        .foregroundStyle(palette.text)
+                }
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: OneTheme.radiusMedium, style: .continuous)
+                        .fill(palette.surfaceMuted)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: OneTheme.radiusMedium, style: .continuous)
+                        .stroke(palette.border, lineWidth: 1)
+                )
+            }
+
+            HStack(spacing: 10) {
+                OneActionButton(palette: palette, title: "Adjust balances", style: .secondary, action: onAdjustBalance)
+                OneActionButton(palette: palette, title: "Open analysis", style: .primary, action: onOpenAnalysis)
+            }
+        }
+    }
+}
+
+private struct FinanceAttentionSignalsCard: View {
+    let palette: OneTheme.Palette
+    let signals: [FinanceAttentionSignal]
+    let currencyCode: String
+
+    private func tint(for severity: FinanceAttentionSeverity) -> Color {
+        switch severity {
+        case .stable:
+            return palette.accent
+        case .watch:
+            return palette.highlight
+        case .warning:
+            return palette.warning
+        case .critical:
+            return palette.danger
+        }
+    }
+
+    var body: some View {
+        OneSurfaceCard(palette: palette) {
+            OneSectionHeading(palette: palette, title: "Attention stack", meta: "Ranked")
+            ForEach(signals) { signal in
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text(signal.title)
+                            .font(OneType.body.weight(.semibold))
+                            .foregroundStyle(palette.text)
+                        Spacer()
+                        if let metricLabel = signal.metricLabel, let metricValue = signal.metricValue {
+                            Text("\(metricLabel) · \(FinanceFormat.currency(metricValue, code: currencyCode))")
+                                .font(OneType.caption.weight(.semibold))
+                                .foregroundStyle(tint(for: signal.severity))
+                        }
+                    }
+                    Text(signal.message)
+                        .font(OneType.secondary)
+                        .foregroundStyle(palette.subtext)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: OneTheme.radiusMedium, style: .continuous)
+                        .fill(palette.surfaceMuted)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: OneTheme.radiusMedium, style: .continuous)
+                        .stroke(tint(for: signal.severity).opacity(0.28), lineWidth: 1)
+                )
+            }
+        }
+    }
+}
+
+private struct FinanceSafeToSpendCard: View {
+    let palette: OneTheme.Palette
+    let summary: FinanceSafeToSpendSummary
+    let currencyCode: String
+    var actionTitle: String? = "Open safety"
+    var action: (() -> Void)? = nil
+
+    var body: some View {
+        OneSurfaceCard(palette: palette) {
+            HStack(alignment: .firstTextBaseline, spacing: OneSpacing.sm) {
+                OneSectionHeading(palette: palette, title: "Safe to spend", meta: "\(summary.daysRemaining)d left")
+                Spacer()
+                if let actionTitle, let action {
+                    Button(actionTitle, action: action)
+                        .font(OneType.label)
+                        .foregroundStyle(palette.accent)
+                }
+            }
+
+            HStack(spacing: 10) {
+                FinanceMetricTile(
+                    palette: palette,
+                    title: "Available",
+                    value: FinanceFormat.currency(summary.amount, code: currencyCode)
+                )
+                FinanceMetricTile(
+                    palette: palette,
+                    title: "Daily guide",
+                    value: FinanceFormat.currency(summary.dailyAllowance, code: currencyCode)
+                )
+            }
+
+            FinanceStatusBadge(palette: palette, label: summary.status.title, tone: summary.status)
+            Text(summary.headline)
+                .font(OneType.sectionTitle)
+                .foregroundStyle(palette.text)
+            Text(summary.message)
+                .font(OneType.secondary)
+                .foregroundStyle(palette.subtext)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct FinanceRecurringPressureCard: View {
+    let palette: OneTheme.Palette
+    let summary: FinanceRecurringPressureSummary
+    let overview: FinanceRecurringOverview?
+    let currencyCode: String
+    var actionTitle: String? = "Open recurring"
+    let action: () -> Void
+
+    var body: some View {
+        OneSurfaceCard(palette: palette) {
+            HStack(alignment: .firstTextBaseline, spacing: OneSpacing.sm) {
+                OneSectionHeading(palette: palette, title: "Recurring pressure", meta: "\(summary.activeCount) active")
+                Spacer()
+                if let actionTitle {
+                    Button(actionTitle, action: action)
+                        .font(OneType.label)
+                        .foregroundStyle(palette.accent)
+                }
+            }
+
+            Text(summary.headline)
+                .font(OneType.sectionTitle)
+                .foregroundStyle(palette.text)
+            Text(summary.message)
+                .font(OneType.secondary)
+                .foregroundStyle(palette.subtext)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 10) {
+                FinanceMetricTile(
+                    palette: palette,
+                    title: "Monthly",
+                    value: FinanceFormat.currency(summary.monthlyCommitment, code: currencyCode)
+                )
+                FinanceMetricTile(
+                    palette: palette,
+                    title: "Share of inflow",
+                    value: "\(OneLayoutMath.percent(summary.shareOfIncome))%"
+                )
+                FinanceMetricTile(
+                    palette: palette,
+                    title: "Still due",
+                    value: FinanceFormat.currency(summary.upcomingChargesTotal, code: currencyCode)
+                )
+            }
+
+            if let overview, !overview.upcomingCharges.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Next charges")
+                        .font(OneType.caption.weight(.semibold))
+                        .foregroundStyle(palette.subtext)
+                    ForEach(overview.upcomingCharges.prefix(3)) { charge in
+                        HStack {
+                            Text(charge.title)
+                                .font(OneType.body.weight(.semibold))
+                                .foregroundStyle(palette.text)
+                            Spacer()
+                            Text(FinanceFormat.currency(charge.amount, code: currencyCode))
+                                .font(OneType.secondary.weight(.semibold))
+                                .foregroundStyle(palette.text)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct FinanceCategoryPressureCard: View {
+    let palette: OneTheme.Palette
+    let categories: [FinanceCategoryDrift]
+    let currencyCode: String
+    let onOpenAnalysis: () -> Void
+
+    var body: some View {
+        OneSurfaceCard(palette: palette) {
+            HStack(alignment: .firstTextBaseline, spacing: OneSpacing.sm) {
+                OneSectionHeading(palette: palette, title: "Category pressure", meta: "Ranked")
+                Spacer()
+                Button("Open analysis", action: onOpenAnalysis)
+                    .font(OneType.label)
+                    .foregroundStyle(palette.accent)
+            }
+
+            ForEach(categories.prefix(3)) { category in
+                FinanceCategoryDriftRow(
+                    palette: palette,
+                    drift: category,
+                    currencyCode: currencyCode,
+                    isExpanded: true
+                )
+            }
+        }
+    }
+}
+
+private struct FinanceAnalyticsHeroCard: View {
+    let palette: OneTheme.Palette
+    let snapshot: FinanceAnalyticsSnapshot
+    let currencyCode: String
+
+    var body: some View {
+        OneGlassCard(palette: palette, padding: OneSpacing.lg) {
+            HStack(alignment: .top, spacing: OneSpacing.md) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("\(snapshot.period.title) analysis")
+                        .font(OneType.label)
+                        .foregroundStyle(palette.subtext)
+                    Text(snapshot.cashflowHealth?.headline ?? snapshot.insightMessage)
+                        .font(OneType.title)
+                        .foregroundStyle(palette.text)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                if let health = snapshot.cashflowHealth {
+                    FinanceStatusBadge(palette: palette, label: health.status.title, tone: health.status)
+                }
+            }
+
+            HStack(spacing: 10) {
+                FinanceMetricTile(
+                    palette: palette,
+                    title: "Spent",
+                    value: FinanceFormat.currency(snapshot.totalSpent, code: currencyCode)
+                )
+                FinanceMetricTile(
+                    palette: palette,
+                    title: "Income",
+                    value: FinanceFormat.currency(snapshot.totalIncome, code: currencyCode)
+                )
+                FinanceMetricTile(
+                    palette: palette,
+                    title: "Net",
+                    value: FinanceFormat.currency(snapshot.netMovement, code: currencyCode)
+                )
+            }
+
+            if let health = snapshot.cashflowHealth {
+                FinanceEquationStrip(
+                    palette: palette,
+                    leading: "Operational truth",
+                    equation: health.message,
+                    result: "Projected \(FinanceFormat.currency(health.projectedBalance, code: currencyCode))"
+                )
+            }
+        }
+    }
+}
+
+private struct FinanceCategoryDriftRow: View {
+    let palette: OneTheme.Palette
+    let drift: FinanceCategoryDrift
+    let currencyCode: String
+    let isExpanded: Bool
+
+    private var deltaColor: Color {
+        if drift.deltaAmount > 0.009 {
+            return palette.warning
+        }
+        if drift.deltaAmount < -0.009 {
+            return palette.success
+        }
+        return palette.subtext
+    }
+
+    private var deltaLabel: String {
+        let shareText = "\(OneLayoutMath.percent(drift.shareOfSpend))%"
+        if let changeRatio = drift.changeRatio, drift.previousAmount > 0.009 {
+            let deltaPercent = Int(((changeRatio - 1) * 100).rounded())
+            let prefix = deltaPercent > 0 ? "+" : ""
+            return "\(prefix)\(deltaPercent)% · \(shareText) share"
+        }
+        return "New pressure · \(shareText) share"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: OneSpacing.sm) {
+                HStack(spacing: 10) {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(palette.surfaceStrong)
+                        .frame(width: 34, height: 34)
+                        .overlay(
+                            OneIcon(
+                                key: drift.oneIconKey,
+                                palette: palette,
+                                size: 16,
+                                tint: palette.symbol
+                            )
+                        )
+                    Text(drift.categoryName)
+                        .font(OneType.body.weight(.semibold))
+                        .foregroundStyle(palette.text)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(FinanceFormat.currency(drift.currentAmount, code: currencyCode))
+                        .font(OneType.body.weight(.semibold))
+                        .foregroundStyle(palette.text)
+                    Text(deltaLabel)
+                        .font(OneType.caption.weight(.semibold))
+                        .foregroundStyle(deltaColor)
+                }
+            }
+
+            GeometryReader { proxy in
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(palette.surfaceStrong)
+                    .overlay(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(deltaColor.opacity(0.78))
+                            .frame(
+                                width: OneLayoutMath.filledWidth(
+                                    containerWidth: proxy.size.width,
+                                    fraction: drift.shareOfSpend,
+                                    minimumWhenVisible: 14
+                                )
+                            )
+                    }
+            }
+            .frame(height: 8)
+
+            if isExpanded {
+                Text(drift.message)
+                    .font(OneType.secondary)
+                    .foregroundStyle(palette.subtext)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 
@@ -1132,7 +1633,11 @@ private struct FinanceTransactionsScreen: View {
                             Button {
                                 onDuplicate(transaction.id)
                             } label: {
-                                Label("Duplicate", systemImage: "plus.square.on.square")
+                                Label {
+                                    Text("Duplicate")
+                                } icon: {
+                                    OneAppIcon(key: .ui(.duplicate), size: 14)
+                                }
                             }
                             .tint(palette.accent)
                         }
@@ -1140,7 +1645,11 @@ private struct FinanceTransactionsScreen: View {
                             Button(role: .destructive) {
                                 onDelete(transaction.id)
                             } label: {
-                                Label("Delete", systemImage: "trash")
+                                Label {
+                                    Text("Delete")
+                                } icon: {
+                                    OneAppIcon(key: .ui(.delete), size: 14)
+                                }
                             }
                         }
                     }
@@ -1218,10 +1727,34 @@ private struct FinanceHistoryRow: View {
     }
 }
 
-private struct FinanceAnalyticsScreen: View {
+private enum FinanceAnalyticsFocus: String, CaseIterable, Hashable {
+    case cashflow
+    case categories
+    case commitments
+    case safety
+
+    var title: String {
+        switch self {
+        case .cashflow:
+            return "Cashflow"
+        case .categories:
+            return "Categories"
+        case .commitments:
+            return "Commitments"
+        case .safety:
+            return "Safety"
+        }
+    }
+}
+
+private struct FinanceAnalyticsWorkspace: View {
     @ObservedObject var viewModel: FinanceViewModel
     let weekStart: Int
+
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var focus: FinanceAnalyticsFocus = .cashflow
+    @State private var selectedCategoryID: String?
 
     private var palette: OneTheme.Palette {
         OneTheme.palette(for: colorScheme)
@@ -1236,8 +1769,9 @@ private struct FinanceAnalyticsScreen: View {
     }
 
     var body: some View {
-        OneScrollScreen(palette: palette, bottomPadding: 36) {
+        VStack(spacing: OneSpacing.md) {
             OneSurfaceCard(palette: palette) {
+                OneSectionHeading(palette: palette, title: "Analysis", meta: displayedPeriod.title)
                 OneSegmentedControl(
                     palette: palette,
                     options: FinanceAnalyticsPeriod.allCases,
@@ -1248,11 +1782,21 @@ private struct FinanceAnalyticsScreen: View {
                         await viewModel.selectAnalyticsPeriod(selection, weekStart: weekStart)
                     }
                 }
+                OneSegmentedControl(
+                    palette: palette,
+                    options: FinanceAnalyticsFocus.allCases,
+                    selection: focus,
+                    title: { $0.title }
+                ) { selection in
+                    withAnimation(OneMotion.animation(.stateChange, reduceMotion: reduceMotion)) {
+                        focus = selection
+                    }
+                }
                 if viewModel.isSwitchingAnalyticsPeriod {
                     HStack(spacing: OneSpacing.sm) {
                         ProgressView()
                             .tint(palette.accent)
-                        Text("Updating \(displayedPeriod.title.lowercased()) report")
+                        Text("Refreshing \(displayedPeriod.title.lowercased()) analysis")
                             .font(OneType.secondary)
                             .foregroundStyle(palette.subtext)
                     }
@@ -1261,125 +1805,257 @@ private struct FinanceAnalyticsScreen: View {
             }
 
             if let snapshot = viewModel.analyticsSnapshot {
-                OneGlassCard(palette: palette) {
-                    Text(snapshot.period.title + " cashflow")
-                        .font(OneType.label)
-                        .foregroundStyle(palette.subtext)
-                    Text(snapshot.insightMessage)
-                        .font(OneType.title)
-                        .foregroundStyle(palette.text)
-                        .fixedSize(horizontal: false, vertical: true)
-                    HStack(spacing: 10) {
-                        FinanceMetricTile(
-                            palette: palette,
-                            title: "Spent",
-                            value: FinanceFormat.currency(snapshot.totalSpent, code: currencyCode)
-                        )
-                        FinanceMetricTile(
-                            palette: palette,
-                            title: "Income",
-                            value: FinanceFormat.currency(snapshot.totalIncome, code: currencyCode)
-                        )
-                        FinanceMetricTile(
-                            palette: palette,
-                            title: "Net",
-                            value: FinanceFormat.currency(snapshot.netMovement, code: currencyCode)
-                        )
-                    }
-                    FinanceEquationStrip(
+                FinanceAnalyticsHeroCard(
+                    palette: palette,
+                    snapshot: snapshot,
+                    currencyCode: currencyCode
+                )
+
+                if !snapshot.attentionSignals.isEmpty {
+                    FinanceAttentionSignalsCard(
                         palette: palette,
-                        leading: "Net",
-                        equation: "\(FinanceFormat.currency(snapshot.totalIncome, code: currencyCode)) - \(FinanceFormat.currency(snapshot.totalSpent, code: currencyCode))",
-                        result: FinanceFormat.currency(snapshot.netMovement, code: currencyCode)
+                        signals: snapshot.attentionSignals,
+                        currencyCode: currencyCode
                     )
                 }
 
-                OneSurfaceCard(palette: palette) {
-                    OneSectionHeading(palette: palette, title: "Cashflow Trend", meta: snapshot.period.title)
-                    if snapshot.chartPoints.isEmpty {
-                        Text("Cash movement appears here once this range has income or spending.")
-                            .font(OneType.secondary)
-                            .foregroundStyle(palette.subtext)
-                    } else {
-                        FinanceCashflowTrendChart(
-                            palette: palette,
-                            points: snapshot.chartPoints,
-                            currencyCode: currencyCode
-                        )
-                        Text("Bars compare spent vs income. The line tracks net movement for each bucket.")
-                            .font(OneType.secondary)
-                            .foregroundStyle(palette.subtext)
+                Group {
+                    switch focus {
+                    case .cashflow:
+                        cashflowSection(snapshot: snapshot)
+                    case .categories:
+                        categoriesSection(snapshot: snapshot)
+                    case .commitments:
+                        commitmentsSection(snapshot: snapshot)
+                    case .safety:
+                        safetySection(snapshot: snapshot)
                     }
                 }
-
+                .transition(.opacity)
+            } else {
                 OneSurfaceCard(palette: palette) {
-                    OneSectionHeading(palette: palette, title: "Category Share", meta: nil)
-                    if snapshot.topCategories.isEmpty {
-                        Text("Category share appears after the first tracked expenses.")
-                            .font(OneType.secondary)
-                            .foregroundStyle(palette.subtext)
-                    } else {
-                        FinanceTableHeader(
-                            palette: palette,
-                            columns: ["Category", "Amount", "Share"]
-                        )
-                        ForEach(snapshot.topCategories) { category in
-                            FinanceCategoryShareRow(
-                                palette: palette,
-                                category: category,
-                                currencyCode: currencyCode,
-                                share: snapshot.totalSpent == 0 ? 0 : category.amount / snapshot.totalSpent
-                            )
-                        }
-                    }
+                    Text("Finance analysis will appear after the latest snapshot finishes loading.")
+                        .font(OneType.secondary)
+                        .foregroundStyle(palette.subtext)
                 }
+            }
+        }
+    }
 
-                OneSurfaceCard(palette: palette) {
-                    OneSectionHeading(palette: palette, title: "Comparison", meta: "Current versus prior references")
-                    if snapshot.comparisonPoints.isEmpty {
-                        Text("Comparison rows appear after more history builds up.")
-                            .font(OneType.secondary)
-                            .foregroundStyle(palette.subtext)
-                    } else {
-                        FinanceTableHeader(
-                            palette: palette,
-                            columns: ["Period", "Spent", "Income", "Net"]
-                        )
-                        ForEach(Array(snapshot.comparisonPoints.enumerated()), id: \.element.id) { index, point in
-                            FinanceComparisonRow(
-                                palette: palette,
-                                point: point,
-                                previousPoint: index > 0 ? snapshot.comparisonPoints[index - 1] : nil,
-                                currencyCode: currencyCode
-                            )
-                        }
-                    }
-                }
+    @ViewBuilder
+    private func cashflowSection(snapshot: FinanceAnalyticsSnapshot) -> some View {
+        OneSurfaceCard(palette: palette) {
+            OneSectionHeading(palette: palette, title: "Cashflow Rhythm", meta: snapshot.period.title)
+            if snapshot.chartPoints.isEmpty {
+                Text("Cash movement appears here once this range has income or spending.")
+                    .font(OneType.secondary)
+                    .foregroundStyle(palette.subtext)
+            } else {
+                FinanceCashflowTrendChart(
+                    palette: palette,
+                    points: snapshot.chartPoints,
+                    currencyCode: currencyCode
+                )
+                Text("Spent, inflow, and net movement stay separated so pressure is visible at a glance.")
+                    .font(OneType.secondary)
+                    .foregroundStyle(palette.subtext)
+            }
+        }
 
-                OneSurfaceCard(palette: palette) {
-                    OneSectionHeading(palette: palette, title: "Projection & Recurring", meta: snapshot.period == .month ? "Month outlook" : "Fixed burden")
-                    if let projected = snapshot.projectedMonthSpend {
-                        FinanceEquationStrip(
-                            palette: palette,
-                            leading: "Projected Spend",
-                            equation: "Current pace extrapolated",
-                            result: FinanceFormat.currency(projected, code: currencyCode)
-                        )
-                    }
-                    FinanceEquationStrip(
+        OneSurfaceCard(palette: palette) {
+            OneSectionHeading(palette: palette, title: "Reference Stack", meta: "Current versus prior")
+            if snapshot.comparisonPoints.isEmpty {
+                Text("Reference rows appear after more history builds up.")
+                    .font(OneType.secondary)
+                    .foregroundStyle(palette.subtext)
+            } else {
+                FinanceTableHeader(
+                    palette: palette,
+                    columns: ["Period", "Spent", "Income", "Net"]
+                )
+                ForEach(Array(snapshot.comparisonPoints.enumerated()), id: \.element.id) { index, point in
+                    FinanceComparisonRow(
                         palette: palette,
-                        leading: "Recurring Burden",
-                        equation: snapshot.period == .year ? "Annualized fixed items" : "Monthly fixed items",
-                        result: FinanceFormat.currency(snapshot.recurringBurden, code: currencyCode)
+                        point: point,
+                        previousPoint: index > 0 ? snapshot.comparisonPoints[index - 1] : nil,
+                        currencyCode: currencyCode
                     )
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func categoriesSection(snapshot: FinanceAnalyticsSnapshot) -> some View {
+        if snapshot.categoryDrift.isEmpty {
+            OneSurfaceCard(palette: palette) {
+                Text("Category drift becomes available once there is enough spending history to compare.")
+                    .font(OneType.secondary)
+                    .foregroundStyle(palette.subtext)
+            }
+        } else {
+            OneSurfaceCard(palette: palette) {
+                OneSectionHeading(palette: palette, title: "Category Drift", meta: "Tap to isolate")
+                ForEach(snapshot.categoryDrift.prefix(6)) { category in
+                    Button {
+                        withAnimation(OneMotion.animation(.stateChange, reduceMotion: reduceMotion)) {
+                            selectedCategoryID = selectedCategoryID == category.id ? nil : category.id
+                        }
+                    } label: {
+                        FinanceCategoryDriftRow(
+                            palette: palette,
+                            drift: category,
+                            currencyCode: currencyCode,
+                            isExpanded: selectedCategoryID == category.id
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    if category.id != snapshot.categoryDrift.prefix(6).last?.id {
+                        Divider().overlay(palette.border)
+                    }
+                }
+            }
+        }
+
+        OneSurfaceCard(palette: palette) {
+            OneSectionHeading(palette: palette, title: "Category Share", meta: nil)
+            if snapshot.topCategories.isEmpty {
+                Text("Category share appears after the first tracked expenses.")
+                    .font(OneType.secondary)
+                    .foregroundStyle(palette.subtext)
+            } else {
+                FinanceTableHeader(
+                    palette: palette,
+                    columns: ["Category", "Amount", "Share"]
+                )
+                ForEach(snapshot.topCategories) { category in
+                    FinanceCategoryShareRow(
+                        palette: palette,
+                        category: category,
+                        currencyCode: currencyCode,
+                        share: snapshot.totalSpent == 0 ? 0 : category.amount / snapshot.totalSpent
+                    )
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func commitmentsSection(snapshot: FinanceAnalyticsSnapshot) -> some View {
+        if let recurringPressure = snapshot.recurringPressure {
+            FinanceRecurringPressureCard(
+                palette: palette,
+                summary: recurringPressure,
+                overview: viewModel.recurringOverview,
+                currencyCode: currencyCode,
+                actionTitle: "Open recurring"
+            ) {
+            }
+        }
+
+        OneSurfaceCard(palette: palette) {
+            OneSectionHeading(palette: palette, title: "Commitment Math", meta: snapshot.period == .year ? "Annual view" : "Current monthly load")
+            FinanceEquationStrip(
+                palette: palette,
+                leading: "Recurring Burden",
+                equation: snapshot.period == .year ? "Annualized fixed items" : "Normalized fixed commitments",
+                result: FinanceFormat.currency(snapshot.recurringBurden, code: currencyCode)
+            )
+            if let overview = viewModel.recurringOverview, !overview.upcomingCharges.isEmpty {
+                Divider().overlay(palette.border)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Upcoming charges")
+                        .font(OneType.label)
+                        .foregroundStyle(palette.subtext)
+                    ForEach(overview.upcomingCharges.prefix(4)) { charge in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(charge.title)
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(palette.text)
+                                Text("Due \(FinanceFormat.longDate(charge.dueDate))")
+                                    .font(OneType.secondary)
+                                    .foregroundStyle(palette.subtext)
+                            }
+                            Spacer()
+                            Text(FinanceFormat.currency(charge.amount, code: currencyCode))
+                                .font(OneType.secondary.weight(.semibold))
+                                .foregroundStyle(palette.text)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func safetySection(snapshot: FinanceAnalyticsSnapshot) -> some View {
+        if let safeToSpend = snapshot.safeToSpend {
+            FinanceSafeToSpendCard(
+                palette: palette,
+                summary: safeToSpend,
+                currencyCode: currencyCode,
+                actionTitle: nil,
+                action: nil
+            )
+        }
+
+        if let pattern = snapshot.spendingPattern {
+            OneSurfaceCard(palette: palette) {
+                OneSectionHeading(palette: palette, title: "Pattern Shift", meta: pattern.acceleratedAfterMidpoint ? "Accelerated" : "Stable")
+                HStack(spacing: 10) {
+                    FinanceMetricTile(
+                        palette: palette,
+                        title: "Recent / day",
+                        value: FinanceFormat.currency(pattern.recentDailyAverage, code: currencyCode)
+                    )
+                    FinanceMetricTile(
+                        palette: palette,
+                        title: "Baseline / day",
+                        value: FinanceFormat.currency(pattern.baselineDailyAverage, code: currencyCode)
+                    )
+                    FinanceMetricTile(
+                        palette: palette,
+                        title: "Current",
+                        value: FinanceFormat.currency(pattern.currentPeriodSpend, code: currencyCode)
+                    )
+                }
+                Text(pattern.message)
+                    .font(OneType.secondary)
+                    .foregroundStyle(palette.subtext)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let health = snapshot.cashflowHealth {
+                    FinanceEquationStrip(
+                        palette: palette,
+                        leading: "Balance resilience",
+                        equation: "Projected balance versus reserve floor",
+                        result: "\(FinanceFormat.currency(health.projectedBalance, code: currencyCode))  ·  Reserve \(FinanceFormat.currency(health.reserveFloor, code: currencyCode))"
+                    )
+                }
+            }
+        }
+    }
+}
+
+private struct FinanceAnalyticsScreen: View {
+    @ObservedObject var viewModel: FinanceViewModel
+    let weekStart: Int
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var palette: OneTheme.Palette {
+        OneTheme.palette(for: colorScheme)
+    }
+
+    var body: some View {
+        OneScrollScreen(palette: palette, bottomPadding: 36) {
+            FinanceAnalyticsWorkspace(viewModel: viewModel, weekStart: weekStart)
 
             if let message = viewModel.errorMessage {
                 FinanceInlineStatusCard(message: message, kind: .danger, palette: palette)
             }
         }
-        .navigationTitle("Reports")
+        .navigationTitle("Analysis")
         .oneNavigationBarDisplayMode(.inline)
     }
 }
@@ -1482,7 +2158,7 @@ private struct FinanceCategoryShareRow: View {
                     .font(OneType.secondary.weight(.semibold))
                     .foregroundStyle(palette.text)
                     .frame(maxWidth: .infinity, alignment: .trailing)
-                Text("\(Int((share * 100).rounded()))%")
+                Text("\(OneLayoutMath.percent(share))%")
                     .font(OneType.secondary.weight(.semibold))
                     .foregroundStyle(palette.subtext)
                     .frame(width: 44, alignment: .trailing)
@@ -1494,7 +2170,13 @@ private struct FinanceCategoryShareRow: View {
                     .overlay(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
                             .fill(palette.accent)
-                            .frame(width: max(proxy.size.width * min(max(share, 0), 1), share > 0 ? 10 : 0))
+                            .frame(
+                                width: OneLayoutMath.filledWidth(
+                                    containerWidth: proxy.size.width,
+                                    fraction: share,
+                                    minimumWhenVisible: 10
+                                )
+                            )
                     }
             }
             .frame(height: 8)
@@ -1579,6 +2261,17 @@ private struct FinanceRecurringScreen: View {
     var body: some View {
         OneScrollScreen(palette: palette, bottomPadding: 36) {
             if let overview = viewModel.recurringOverview {
+                if let recurringPressure = viewModel.homeSnapshot?.recurringPressure {
+                    FinanceRecurringPressureCard(
+                        palette: palette,
+                        summary: recurringPressure,
+                        overview: overview,
+                        currencyCode: currencyCode,
+                        actionTitle: nil
+                    ) {
+                    }
+                }
+
                 OneGlassCard(palette: palette) {
                     Text("Recurring")
                         .font(OneType.label)
@@ -1654,9 +2347,11 @@ private struct FinanceRecurringScreen: View {
                                         }
                                     }
                                 } label: {
-                                    Image(systemName: "ellipsis.circle")
-                                        .font(.system(size: 18, weight: .semibold))
-                                        .foregroundStyle(palette.subtext)
+                                    OneAppIcon(
+                                        key: .ui(.more),
+                                        size: 18,
+                                        tint: palette.subtext
+                                    )
                                 }
                             }
                         }
@@ -2638,6 +3333,12 @@ private struct FinanceDeltaChip: View {
 private struct FinanceResolvedCategory {
     let title: String
     let iconKey: OneIconKey
+}
+
+private extension FinanceCategoryDrift {
+    var oneIconKey: OneIconKey {
+        OneIconKey.financeCategory(name: categoryName, storedIcon: iconName)
+    }
 }
 
 private enum FinanceFormat {

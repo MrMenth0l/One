@@ -28,6 +28,99 @@ final class OneAppTests: XCTestCase {
         XCTAssertNil(OneAddAction.task.financeTransactionType)
     }
 
+    func testMainTabsCoordinatorTogglesQuickAddWithoutLeavingCurrentTab() {
+        let initialState = MainTabsState(selectedTab: .today)
+
+        let transition = MainTabsCoordinator.userSelected(MainTabSlot.quickAdd, state: initialState)
+
+        XCTAssertEqual(transition.state.selectedSlot, MainTabSlot.today)
+        XCTAssertEqual(transition.state.previousRealSlot, MainTabSlot.today)
+        XCTAssertTrue(transition.state.isQuickAddExpanded)
+        XCTAssertEqual(transition.command, .toggleQuickAdd(isExpanded: true))
+    }
+
+    func testMainTabsCoordinatorSelectingRealTabCollapsesQuickAdd() {
+        let expandedState = MainTabsCoordinator
+            .userSelected(MainTabSlot.quickAdd, state: MainTabsState(selectedTab: .today))
+            .state
+
+        let transition = MainTabsCoordinator.userSelected(MainTabSlot.finance, state: expandedState)
+
+        XCTAssertEqual(transition.state.selectedSlot, MainTabSlot.finance)
+        XCTAssertEqual(transition.state.previousRealSlot, MainTabSlot.finance)
+        XCTAssertFalse(transition.state.isQuickAddExpanded)
+        XCTAssertEqual(transition.command, .selectTab(.finance))
+    }
+
+    func testMainTabsCoordinatorSyncClearsQuickAddAfterExternalSelection() {
+        let expandedState = MainTabsCoordinator
+            .userSelected(MainTabSlot.quickAdd, state: MainTabsState(selectedTab: .review))
+            .state
+
+        let syncedState = MainTabsCoordinator.sync(state: expandedState, selectedTab: .settings)
+
+        XCTAssertEqual(syncedState.selectedSlot, MainTabSlot.settings)
+        XCTAssertEqual(syncedState.previousRealSlot, MainTabSlot.settings)
+        XCTAssertFalse(syncedState.isQuickAddExpanded)
+    }
+
+    func testTodayMosaicPlannerPromotesOnlyOneHeroAcrossMixedItems() {
+        let dueDate = ISO8601DateFormatter().date(from: "2026-04-11T09:00:00Z")
+        let items = [
+            makeTodayItem(
+                itemType: .todo,
+                itemId: "hero-todo",
+                title: "Submit launch checklist",
+                prominence: .featured,
+                urgency: .overdue,
+                isPinned: true,
+                priority: 95,
+                dueAt: dueDate,
+                manualBoost: 0.34,
+                clusterKey: "todo"
+            ),
+            makeTodayItem(
+                itemType: .habit,
+                itemId: "featured-habit",
+                title: "Morning training",
+                prominence: .featured,
+                urgency: .dueToday,
+                priority: 80,
+                manualBoost: 0.24,
+                clusterKey: "habit"
+            ),
+            makeTodayItem(
+                itemType: .todo,
+                itemId: "body-todo",
+                title: "Send receipts",
+                prominence: .standard,
+                urgency: .soon,
+                priority: 60,
+                clusterKey: "todo"
+            ),
+            makeTodayItem(
+                itemType: .habit,
+                itemId: "compact-habit",
+                title: "Read ten pages",
+                prominence: .compact,
+                urgency: .none,
+                priority: 45,
+                clusterKey: "habit"
+            ),
+        ]
+
+        let snapshot = TodayMosaicPlanner.plan(items: items, width: 390)
+        let leadPlacements = snapshot.placements.filter {
+            $0.footprint == .lead || $0.footprint == .leadTall
+        }
+
+        XCTAssertEqual(snapshot.placements.count, items.count)
+        XCTAssertEqual(Set(snapshot.placements.map(\.itemID)), Set(items.map(\.id)))
+        XCTAssertEqual(leadPlacements.count, 1)
+        XCTAssertEqual(leadPlacements.first?.itemID, "todo:hero-todo")
+        XCTAssertGreaterThan(snapshot.height, 0)
+    }
+
     func testOneIconKeyNormalizesLegacyTaskCategoryIcons() {
         XCTAssertEqual(OneIconKey.taskCategory(name: "Gym", storedIcon: "🏋️"), .categoryGym)
         XCTAssertEqual(OneIconKey.taskCategory(name: "School", storedIcon: "🎓"), .categorySchool)
@@ -364,6 +457,44 @@ final class OneAppTests: XCTestCase {
         let today = try await todayRepository.loadToday(date: "2026-03-12")
 
         XCTAssertEqual(today.items.map(\.itemId), [newer.id, older.id])
+    }
+
+    func testOfflineTodayRanksDueTodayAheadOfPinnedWithoutManualOverride() async throws {
+        let sessionStore = InMemoryAuthSessionStore()
+        let stack = try LocalPersistenceFactory.makeInMemory(sessionStore: sessionStore)
+
+        let authRepository = DefaultAuthRepository(apiClient: stack.apiClient)
+        let tasksRepository = DefaultTasksRepository(apiClient: stack.apiClient, syncQueue: stack.syncQueue)
+        let todayRepository = DefaultTodayRepository(apiClient: stack.apiClient, syncQueue: stack.syncQueue)
+
+        _ = try await authRepository.signup(
+            email: "urgency@one.local",
+            password: "offline-local-profile",
+            displayName: "Urgency User",
+            timezone: "America/Guatemala"
+        )
+
+        let categories = try await tasksRepository.loadCategories()
+        let pinned = try await tasksRepository.createTodo(
+            TodoCreateInput(
+                categoryId: categories[0].id,
+                title: "Pinned Project",
+                dueAt: ISO8601DateFormatter().date(from: "2026-03-13T12:00:00Z"),
+                isPinned: true
+            )
+        )
+        let urgent = try await tasksRepository.createTodo(
+            TodoCreateInput(
+                categoryId: categories[0].id,
+                title: "Submit Assignment",
+                dueAt: ISO8601DateFormatter().date(from: "2026-03-12T09:00:00Z"),
+                priority: 80
+            )
+        )
+
+        let today = try await todayRepository.loadToday(date: "2026-03-12")
+
+        XCTAssertEqual(today.items.map(\.itemId), [urgent.id, pinned.id])
     }
 
     func testStoredLocalStoreBootstrapFlow() async throws {
@@ -815,6 +946,176 @@ final class OneAppTests: XCTestCase {
         XCTAssertEqual(viewModel.sentimentSummary?.dominant, .focused)
     }
 
+    func testWidgetSnapshotStoreRoundTripAndFallbacks() throws {
+        let fileManager = FileManager.default
+        let directoryURL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            .appendingPathComponent("OneWidgetSnapshotTests-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        let snapshotURL = directoryURL.appendingPathComponent("today-queue.json")
+        let generatedAt = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-03-12T12:00:00Z"))
+        let payload = OneWidgetSnapshotPayload.ready(
+            todayQueue: OneWidgetQueueSnapshot(
+                dateLocal: "2026-03-12",
+                items: [
+                    OneWidgetQueueItem(
+                        itemType: .todo,
+                        itemId: "todo-1",
+                        dateLocal: "2026-03-12",
+                        title: "Submit draft",
+                        subtitle: "Due today",
+                        categoryName: "School",
+                        categoryIcon: .categorySchool,
+                        urgency: .dueToday,
+                        timeBucket: .midday,
+                        isPinned: true
+                    )
+                ],
+                completedCount: 1,
+                totalCount: 2,
+                isConfigured: true
+            ),
+            generatedAt: generatedAt
+        )
+
+        try OneWidgetSnapshotStore.write(payload, storeURL: snapshotURL)
+        XCTAssertEqual(OneWidgetSnapshotStore.read(storeURL: snapshotURL), payload)
+
+        try OneWidgetSnapshotStore.clear(storeURL: snapshotURL)
+        XCTAssertEqual(
+            OneWidgetSnapshotStore.read(storeURL: snapshotURL).configurationState,
+            .needsAppLaunch
+        )
+
+        let signedOut = OneWidgetSnapshotPayload.signedOut(generatedAt: generatedAt)
+        try OneWidgetSnapshotStore.write(signedOut, storeURL: snapshotURL)
+        let rereadSignedOut = OneWidgetSnapshotStore.read(storeURL: snapshotURL)
+        XCTAssertEqual(rereadSignedOut.configurationState, .signedOut)
+        XCTAssertTrue(rereadSignedOut.todayQueue.items.isEmpty)
+        XCTAssertTrue(rereadSignedOut.todayQueue.isConfigured)
+    }
+
+    func testWidgetMaterializerMatchesTodayOrderingForMixedQueue() async throws {
+        let sessionStore = InMemoryAuthSessionStore()
+        let stack = try LocalPersistenceFactory.makeInMemory(sessionStore: sessionStore)
+        let authRepository = DefaultAuthRepository(apiClient: stack.apiClient)
+        let tasksRepository = DefaultTasksRepository(apiClient: stack.apiClient, syncQueue: stack.syncQueue)
+        let todayRepository = DefaultTodayRepository(apiClient: stack.apiClient, syncQueue: stack.syncQueue)
+
+        _ = try await authRepository.signup(
+            email: "widget-order@one.local",
+            password: "offline-local-profile",
+            displayName: "Widget Order",
+            timezone: "America/Guatemala"
+        )
+
+        let categories = try await tasksRepository.loadCategories()
+        let habit = try await tasksRepository.createHabit(
+            HabitCreateInput(
+                categoryId: categories[0].id,
+                title: "Morning workout",
+                recurrenceRule: "DAILY",
+                startDate: "2026-03-12"
+            )
+        )
+        let todo = try await tasksRepository.createTodo(
+            TodoCreateInput(
+                categoryId: categories[1].id,
+                title: "Submit project draft",
+                dueAt: ISO8601DateFormatter().date(from: "2026-03-12T15:00:00Z"),
+                priority: 95,
+                isPinned: true
+            )
+        )
+
+        let today = try await todayRepository.loadToday(date: "2026-03-12")
+        let payload = try OneWidgetQueueMaterializer().makePayload(
+            container: stack.container,
+            referenceDate: try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-03-12T12:00:00Z"))
+        )
+
+        let expectedIDs = today.items
+            .filter { !$0.completed && $0.surfaceZone == .flow }
+            .map { "\($0.itemType.rawValue):\($0.itemId)" }
+
+        XCTAssertEqual(payload.configurationState, .ready)
+        XCTAssertEqual(payload.todayQueue.items.map(\.id), expectedIDs)
+        XCTAssertTrue(payload.todayQueue.items.contains { $0.itemId == habit.id })
+        XCTAssertTrue(payload.todayQueue.items.contains { $0.itemId == todo.id })
+    }
+
+    func testWidgetMaterializerReflectsCompletionAndReorderOverrides() async throws {
+        let sessionStore = InMemoryAuthSessionStore()
+        let stack = try LocalPersistenceFactory.makeInMemory(sessionStore: sessionStore)
+        let authRepository = DefaultAuthRepository(apiClient: stack.apiClient)
+        let tasksRepository = DefaultTasksRepository(apiClient: stack.apiClient, syncQueue: stack.syncQueue)
+        let todayRepository = DefaultTodayRepository(apiClient: stack.apiClient, syncQueue: stack.syncQueue)
+        let referenceDate = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-03-12T12:00:00Z"))
+        let materializer = OneWidgetQueueMaterializer()
+
+        _ = try await authRepository.signup(
+            email: "widget-reorder@one.local",
+            password: "offline-local-profile",
+            displayName: "Widget Reorder",
+            timezone: "America/Guatemala"
+        )
+
+        let categories = try await tasksRepository.loadCategories()
+        _ = try await tasksRepository.createHabit(
+            HabitCreateInput(
+                categoryId: categories[0].id,
+                title: "Morning workout",
+                recurrenceRule: "DAILY",
+                startDate: "2026-03-12"
+            )
+        )
+        _ = try await tasksRepository.createTodo(
+            TodoCreateInput(
+                categoryId: categories[1].id,
+                title: "Submit project draft",
+                dueAt: ISO8601DateFormatter().date(from: "2026-03-12T15:00:00Z"),
+                priority: 80,
+                isPinned: false
+            )
+        )
+
+        let initial = try await todayRepository.loadToday(date: "2026-03-12")
+        let initialFlow = initial.items.filter { !$0.completed && $0.surfaceZone == .flow }
+        let reorderedFlow = Array(initialFlow.reversed())
+        _ = try await todayRepository.reorder(
+            dateLocal: "2026-03-12",
+            items: reorderedFlow.enumerated().map {
+                TodayOrderItem(
+                    itemType: $0.element.itemType,
+                    itemId: $0.element.itemId,
+                    orderIndex: $0.offset
+                )
+            }
+        )
+
+        var payload = try materializer.makePayload(container: stack.container, referenceDate: referenceDate)
+        XCTAssertEqual(
+            payload.todayQueue.items.map(\.id),
+            reorderedFlow.map { "\($0.itemType.rawValue):\($0.itemId)" }
+        )
+
+        let completedItem = try XCTUnwrap(reorderedFlow.first)
+        let refreshed = try await todayRepository.setCompletion(
+            itemType: completedItem.itemType,
+            itemId: completedItem.itemId,
+            dateLocal: "2026-03-12",
+            state: .completed
+        )
+
+        payload = try materializer.makePayload(container: stack.container, referenceDate: referenceDate)
+        let expectedFlowIDs = refreshed.items
+            .filter { !$0.completed && $0.surfaceZone == .flow }
+            .map { "\($0.itemType.rawValue):\($0.itemId)" }
+
+        XCTAssertEqual(payload.todayQueue.items.map(\.id), expectedFlowIDs)
+        XCTAssertEqual(payload.todayQueue.completedCount, refreshed.completedCount)
+        XCTAssertEqual(payload.todayQueue.totalCount, refreshed.totalCount)
+    }
+
     private func assertWeeklyHabitStaysOnConfiguredWeekdayAcrossDeviceTimezones() async throws {
         let originalTimeZone = NSTimeZone.default
         defer { NSTimeZone.default = originalTimeZone }
@@ -944,6 +1245,42 @@ final class OneAppTests: XCTestCase {
         XCTAssertEqual(viewModel.summary?.completedItems, 5)
         XCTAssertEqual(viewModel.summary?.expectedItems, 5)
         XCTAssertEqual(viewModel.dailySummaries.map(\.completedItems), [1, 4])
+    }
+
+    private func makeTodayItem(
+        itemType: ItemType,
+        itemId: String,
+        title: String,
+        prominence: TodayProminence,
+        urgency: TodayUrgency,
+        isPinned: Bool = false,
+        priority: Int? = nil,
+        dueAt: Date? = nil,
+        manualBoost: Double = 0,
+        clusterKey: String
+    ) -> TodayItem {
+        TodayItem(
+            itemType: itemType,
+            itemId: itemId,
+            title: title,
+            categoryId: "category-\(clusterKey)",
+            completed: false,
+            sortBucket: 0,
+            sortScore: 100,
+            subtitle: nil,
+            isPinned: isPinned,
+            priority: priority,
+            dueAt: dueAt,
+            preferredTime: itemType == .habit ? "07:00:00" : nil,
+            blendedScore: 0.8,
+            prominence: prominence,
+            surfaceZone: .flow,
+            urgency: urgency,
+            timeBucket: urgency == .none ? .anytime : .morning,
+            clusterKey: clusterKey,
+            learningConfidence: itemType == .habit ? 0.74 : 0.52,
+            manualBoost: manualBoost
+        )
     }
 }
 

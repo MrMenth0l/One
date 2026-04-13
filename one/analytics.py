@@ -146,9 +146,9 @@ def summarize_period(
     expected = sum(summary.expected_items for summary in in_period)
     completion_rate = completed / expected if expected else 0.0
     active_days = sum(1 for summary in in_period if summary.completed_items > 0)
-
-    day_rates = [summary.completion_rate for summary in in_period if summary.expected_items > 0]
-    consistency_score = sum(day_rates) / len(day_rates) if day_rates else 0.0
+    commitment_days = [summary for summary in in_period if summary.expected_items > 0]
+    reliable_days = [summary for summary in commitment_days if summary.completion_rate >= 0.8]
+    consistency_score = len(reliable_days) / len(commitment_days) if commitment_days else 0.0
 
     return PeriodSummary(
         period_type=period_type,

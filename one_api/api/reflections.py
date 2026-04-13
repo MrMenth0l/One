@@ -7,6 +7,8 @@ from one_api.api.deps import UserContext, get_user_context
 from one_api.db.repositories import ReflectionRepository
 from one_api.db.session import get_db
 from one_api.schemas import ReflectionNoteResponse, ReflectionWriteRequest
+from one.models import ReflectionSentiment
+from one.reflections import derive_reflection_tags
 
 router = APIRouter(prefix="/reflections", tags=["reflections"])
 
@@ -27,6 +29,15 @@ def create_reflection(
     ctx: UserContext = Depends(get_user_context),
     db: Session = Depends(get_db),
 ):
+    try:
+        sentiment = ReflectionSentiment(payload.sentiment)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid reflection sentiment") from exc
+    derived_tags = derive_reflection_tags(
+        content=payload.content,
+        sentiment=sentiment,
+        existing=payload.tags,
+    )
     row = ReflectionRepository(db).create(
         user_id=ctx.user_id,
         period_type=payload.period_type,
@@ -34,7 +45,7 @@ def create_reflection(
         period_end=payload.period_end,
         content=payload.content,
         sentiment=payload.sentiment,
-        tags=payload.tags,
+        tags=derived_tags,
     )
     db.commit()
     return ReflectionNoteResponse.model_validate(row)

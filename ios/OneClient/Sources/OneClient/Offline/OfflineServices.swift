@@ -1,6 +1,7 @@
 import Foundation
 
 struct TodayOrderOverrideRecord: Sendable, Equatable {
+    let dateLocal: String
     let itemType: ItemType
     let itemId: String
     let orderIndex: Int
@@ -198,6 +199,7 @@ struct LocalTodayService {
     func materialize(
         user: User,
         targetDate: String,
+        categories: [Category],
         habits: [Habit],
         todos: [Todo],
         completionLogs: [CompletionLog],
@@ -228,12 +230,14 @@ struct LocalTodayService {
 
         let logs = dayLogs + materializedLogs
         let items = applyOverrides(
-            to: buildTodayItems(
+            to: TodayIntelligenceEngine().buildItems(
                 user: user,
                 targetDate: targetDate,
+                categories: categories,
                 habits: habits,
                 todos: todos,
-                completionLogs: logs
+                completionLogs: logs,
+                overrides: overrides
             ),
             overrides: overrides
         )
@@ -457,7 +461,10 @@ struct LocalTodayService {
         guard !overrides.isEmpty else {
             return items
         }
-        let orderLookup = Dictionary(uniqueKeysWithValues: overrides.map { ("\($0.itemType.rawValue):\($0.itemId)", $0.orderIndex) })
+        let orderLookup = overrides.reduce(into: [String: Int]()) { partial, override in
+            let key = "\(override.itemType.rawValue):\(override.itemId)"
+            partial[key] = min(partial[key] ?? override.orderIndex, override.orderIndex)
+        }
         return items.enumerated()
             .sorted { lhs, rhs in
                 let lhsKey = lhs.element.id
@@ -656,8 +663,9 @@ struct LocalAnalyticsService {
         let completed = summaries.reduce(0) { $0 + $1.completedItems }
         let expected = summaries.reduce(0) { $0 + $1.expectedItems }
         let activeDays = summaries.filter { $0.completedItems > 0 }.count
-        let rates = summaries.filter { $0.expectedItems > 0 }.map(\.completionRate)
-        let consistency = rates.isEmpty ? 0 : rates.reduce(0, +) / Double(rates.count)
+        let commitmentDays = summaries.filter { $0.expectedItems > 0 }
+        let reliableDays = commitmentDays.filter { $0.completionRate >= 0.8 }
+        let consistency = commitmentDays.isEmpty ? 0 : Double(reliableDays.count) / Double(commitmentDays.count)
         return PeriodSummary(
             periodType: periodType,
             periodStart: bounds.start,

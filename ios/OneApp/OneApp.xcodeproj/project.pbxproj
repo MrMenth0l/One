@@ -10,13 +10,26 @@
 		3393BE0075F0143A553FD39A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C7419A80EBE3879D8939959C /* Assets.xcassets */; };
 		40B949C4FFC70911C22D57E0 /* OneApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B33942C20ED1073B2196496E /* OneApp.swift */; };
 		602485C98EDF6220A486FF29 /* OneAppTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17EAFB9A26D3B9AD2A6F46F4 /* OneAppTests.swift */; };
+		87E15DD5F863AB0163F0B64A /* OneTodayQueueWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30FC1F7BD776796075F3D097 /* OneTodayQueueWidget.swift */; };
 		9DF3CEF2E75A2B2435DD70EE /* OneClient in Frameworks */ = {isa = PBXBuildFile; productRef = AC50CE95DB86A1D98D8A6CA5 /* OneClient */; };
+		A417D7D33D7F0DF26673686E /* IconAssetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53EDC7CF25254CD3465C7083 /* IconAssetTests.swift */; };
 		AA3A5C9B35C4849961BC3400 /* FinanceFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15995754E1B4CEB37DDDA974 /* FinanceFeatureTests.swift */; };
+		D0740536F0AC4C044525FD45 /* OneControlWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCBE8AAE594930D55D77FF6C /* OneControlWidgets.swift */; };
 		D9C02C45968021D11745E2E0 /* UtilityRailTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8324179B0976C4D245A3B3D3 /* UtilityRailTests.swift */; };
+		E7ECD308ED185B32CEAFA611 /* OneClient in Frameworks */ = {isa = PBXBuildFile; productRef = 769A8C2F01680B89DEF34F1B /* OneClient */; };
 		EDF94E7D5245DE5A2E4DF104 /* OneClient in Frameworks */ = {isa = PBXBuildFile; productRef = BB48C7A912A28ACF6DDFD279 /* OneClient */; };
+		F6D344B9AD4CA73EB2D4F002 /* OneWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 42144112D71F9A3730203472 /* OneWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FE142AF1FF4640CAF3457D4A /* OneWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A6729690E587A60559DF7C9 /* OneWidgetsBundle.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		3C60BB08A232A69BC8CFE74A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E55018211EEC9824ED2A381B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 994B7F826F188DE69D445746;
+			remoteInfo = OneWidgetsExtension;
+		};
 		B60566DF946D2ABBFBBDFF0A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = E55018211EEC9824ED2A381B /* Project object */;
@@ -26,18 +39,40 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		D86158DF705178342ED13E50 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				F6D344B9AD4CA73EB2D4F002 /* OneWidgetsExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		0F10AEC33AE767D5E1B63DD1 /* OneApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OneApp.entitlements; sourceTree = "<group>"; };
 		15995754E1B4CEB37DDDA974 /* FinanceFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinanceFeatureTests.swift; sourceTree = "<group>"; };
 		17EAFB9A26D3B9AD2A6F46F4 /* OneAppTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneAppTests.swift; sourceTree = "<group>"; };
+		1A6729690E587A60559DF7C9 /* OneWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneWidgetsBundle.swift; sourceTree = "<group>"; };
 		1BCA2D4356405507AF104C18 /* Info.Release.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.Release.plist; sourceTree = "<group>"; };
 		2A17516AB588927DDD020CBF /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		30FC1F7BD776796075F3D097 /* OneTodayQueueWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneTodayQueueWidget.swift; sourceTree = "<group>"; };
+		42144112D71F9A3730203472 /* OneWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OneWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		45C990E41F38580761D802C5 /* OneClient */ = {isa = PBXFileReference; lastKnownFileType = folder; name = OneClient; path = ../OneClient; sourceTree = SOURCE_ROOT; };
+		53EDC7CF25254CD3465C7083 /* IconAssetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IconAssetTests.swift; sourceTree = "<group>"; };
+		78B6BAA72629E9914B6485FF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		79B240AEA6EE7320BE772E73 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		7ED4423CF52E54D9F4CA6F30 /* OneWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OneWidgetsExtension.entitlements; sourceTree = "<group>"; };
 		8324179B0976C4D245A3B3D3 /* UtilityRailTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtilityRailTests.swift; sourceTree = "<group>"; };
 		AFA87FA0D69DA533A948E2F6 /* One.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = One.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0E075BA2CE7549449DD4557 /* Info.Debug.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.Debug.plist; sourceTree = "<group>"; };
 		B33942C20ED1073B2196496E /* OneApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneApp.swift; sourceTree = "<group>"; };
 		C7419A80EBE3879D8939959C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		CCBE8AAE594930D55D77FF6C /* OneControlWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneControlWidgets.swift; sourceTree = "<group>"; };
 		D0354F8A3B2FAEFCF7502329 /* OneAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OneAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -47,6 +82,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				9DF3CEF2E75A2B2435DD70EE /* OneClient in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B4485FD7F3BE2FD1EFEFC679 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E7ECD308ED185B32CEAFA611 /* OneClient in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -67,6 +110,7 @@
 				F5C60E965DB2F1403F665311 /* Configs */,
 				98DDAF1BBA29209B50B1EC16 /* OneApp */,
 				055E7A1BBC46176BA49AD1F2 /* OneAppTests */,
+				6140589405C901C295499A7C /* OneWidgetsExtension */,
 				88AFB9BC0C2D9079743A8E8D /* Packages */,
 				75B5B9234EADCB1D63200F1D /* Products */,
 			);
@@ -76,10 +120,23 @@
 			isa = PBXGroup;
 			children = (
 				15995754E1B4CEB37DDDA974 /* FinanceFeatureTests.swift */,
+				53EDC7CF25254CD3465C7083 /* IconAssetTests.swift */,
 				17EAFB9A26D3B9AD2A6F46F4 /* OneAppTests.swift */,
 				8324179B0976C4D245A3B3D3 /* UtilityRailTests.swift */,
 			);
 			path = OneAppTests;
+			sourceTree = "<group>";
+		};
+		6140589405C901C295499A7C /* OneWidgetsExtension */ = {
+			isa = PBXGroup;
+			children = (
+				78B6BAA72629E9914B6485FF /* Info.plist */,
+				CCBE8AAE594930D55D77FF6C /* OneControlWidgets.swift */,
+				30FC1F7BD776796075F3D097 /* OneTodayQueueWidget.swift */,
+				1A6729690E587A60559DF7C9 /* OneWidgetsBundle.swift */,
+				7ED4423CF52E54D9F4CA6F30 /* OneWidgetsExtension.entitlements */,
+			);
+			path = OneWidgetsExtension;
 			sourceTree = "<group>";
 		};
 		75B5B9234EADCB1D63200F1D /* Products */ = {
@@ -87,6 +144,7 @@
 			children = (
 				AFA87FA0D69DA533A948E2F6 /* One.app */,
 				D0354F8A3B2FAEFCF7502329 /* OneAppTests.xctest */,
+				42144112D71F9A3730203472 /* OneWidgetsExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -105,6 +163,7 @@
 				C7419A80EBE3879D8939959C /* Assets.xcassets */,
 				B0E075BA2CE7549449DD4557 /* Info.Debug.plist */,
 				1BCA2D4356405507AF104C18 /* Info.Release.plist */,
+				0F10AEC33AE767D5E1B63DD1 /* OneApp.entitlements */,
 				B33942C20ED1073B2196496E /* OneApp.swift */,
 			);
 			path = OneApp;
@@ -129,10 +188,12 @@
 				379538FD75B5099C9C7A93A7 /* Sources */,
 				121EADD095B6243D7ECD9F46 /* Resources */,
 				3AE2474F7E937D9FC7EEDE91 /* Frameworks */,
+				D86158DF705178342ED13E50 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				4A6F8147519870FFCAAF2C2E /* PBXTargetDependency */,
 			);
 			name = OneApp;
 			packageProductDependencies = (
@@ -162,6 +223,25 @@
 			productReference = D0354F8A3B2FAEFCF7502329 /* OneAppTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		994B7F826F188DE69D445746 /* OneWidgetsExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1148BC1DBC25368EFFB54EEA /* Build configuration list for PBXNativeTarget "OneWidgetsExtension" */;
+			buildPhases = (
+				E0FFE9D00D098F185713A3C4 /* Sources */,
+				B4485FD7F3BE2FD1EFEFC679 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OneWidgetsExtension;
+			packageProductDependencies = (
+				769A8C2F01680B89DEF34F1B /* OneClient */,
+			);
+			productName = OneWidgetsExtension;
+			productReference = 42144112D71F9A3730203472 /* OneWidgetsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -176,6 +256,9 @@
 					};
 					1F84BA108AEC0E6442B3CEBF = {
 						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					994B7F826F188DE69D445746 = {
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -199,6 +282,7 @@
 			targets = (
 				16075A84994C5F0CDA0CD5B5 /* OneApp */,
 				1F84BA108AEC0E6442B3CEBF /* OneAppTests */,
+				994B7F826F188DE69D445746 /* OneWidgetsExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -228,8 +312,19 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA3A5C9B35C4849961BC3400 /* FinanceFeatureTests.swift in Sources */,
+				A417D7D33D7F0DF26673686E /* IconAssetTests.swift in Sources */,
 				602485C98EDF6220A486FF29 /* OneAppTests.swift in Sources */,
 				D9C02C45968021D11745E2E0 /* UtilityRailTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E0FFE9D00D098F185713A3C4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D0740536F0AC4C044525FD45 /* OneControlWidgets.swift in Sources */,
+				87E15DD5F863AB0163F0B64A /* OneTodayQueueWidget.swift in Sources */,
+				FE142AF1FF4640CAF3457D4A /* OneWidgetsBundle.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -241,9 +336,36 @@
 			target = 16075A84994C5F0CDA0CD5B5 /* OneApp */;
 			targetProxy = B60566DF946D2ABBFBBDFF0A /* PBXContainerItemProxy */;
 		};
+		4A6F8147519870FFCAAF2C2E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 994B7F826F188DE69D445746 /* OneWidgetsExtension */;
+			targetProxy = 3C60BB08A232A69BC8CFE74A /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		0C216DDD04106564E0DD2AE9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 79B240AEA6EE7320BE772E73 /* Debug.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = OneWidgetsExtension/OneWidgetsExtension.entitlements;
+				DEVELOPMENT_TEAM = 8JM5JY4YY7;
+				INFOPLIST_FILE = OneWidgetsExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.yehosuah.one.app.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		1B5E977A72ECBFEEA80EE844 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 79B240AEA6EE7320BE772E73 /* Debug.xcconfig */;
@@ -399,6 +521,7 @@
 			baseConfigurationReference = 2A17516AB588927DDD020CBF /* Release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = OneApp/OneApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = 8JM5JY4YY7;
 				INFOPLIST_FILE = OneApp/Info.Release.plist;
@@ -432,11 +555,34 @@
 			};
 			name = Release;
 		};
+		EB17DBDD54B528DD4400D2A7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2A17516AB588927DDD020CBF /* Release.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = OneWidgetsExtension/OneWidgetsExtension.entitlements;
+				DEVELOPMENT_TEAM = 8JM5JY4YY7;
+				INFOPLIST_FILE = OneWidgetsExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.yehosuah.one.app.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		F844FCCC890CB27852F18FDA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 79B240AEA6EE7320BE772E73 /* Debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = OneApp/OneApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = 8JM5JY4YY7;
 				INFOPLIST_FILE = OneApp/Info.Debug.plist;
@@ -454,6 +600,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		1148BC1DBC25368EFFB54EEA /* Build configuration list for PBXNativeTarget "OneWidgetsExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0C216DDD04106564E0DD2AE9 /* Debug */,
+				EB17DBDD54B528DD4400D2A7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		8B64B25279E2BCB7E4CF08FC /* Build configuration list for PBXProject "OneApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -491,6 +646,10 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		769A8C2F01680B89DEF34F1B /* OneClient */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OneClient;
+		};
 		AC50CE95DB86A1D98D8A6CA5 /* OneClient */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OneClient;

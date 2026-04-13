@@ -78,6 +78,43 @@ public enum FinanceWarningKind: String, Codable, Sendable, CaseIterable, Hashabl
     case unusualSpending
 }
 
+public enum FinanceHealthStatus: String, Codable, Sendable, CaseIterable, Hashable {
+    case resilient
+    case steady
+    case pressured
+    case critical
+
+    public var title: String {
+        switch self {
+        case .resilient:
+            return "Resilient"
+        case .steady:
+            return "Steady"
+        case .pressured:
+            return "Pressured"
+        case .critical:
+            return "Critical"
+        }
+    }
+}
+
+public enum FinanceAttentionSeverity: String, Codable, Sendable, CaseIterable, Hashable {
+    case stable
+    case watch
+    case warning
+    case critical
+}
+
+public enum FinanceAttentionKind: String, Codable, Sendable, CaseIterable, Hashable {
+    case cashflow
+    case category
+    case recurring
+    case safeToSpend
+    case unusual
+    case pace
+    case balance
+}
+
 public enum FinanceVoiceParseConfidence: String, Codable, Sendable, CaseIterable, Hashable {
     case low
     case medium
@@ -347,6 +384,187 @@ public struct FinanceInsightSummary: Codable, Sendable, Equatable, Hashable {
     }
 }
 
+public struct FinanceCashflowHealth: Codable, Sendable, Equatable, Hashable {
+    public let status: FinanceHealthStatus
+    public let score: Int
+    public let headline: String
+    public let message: String
+    public let freeCashflow: Double
+    public let projectedBalance: Double
+    public let reserveFloor: Double
+    public let runwayDays: Int
+    public let commitmentShareOfIncome: Double
+    public let spendingPaceRatio: Double
+
+    public init(
+        status: FinanceHealthStatus,
+        score: Int,
+        headline: String,
+        message: String,
+        freeCashflow: Double,
+        projectedBalance: Double,
+        reserveFloor: Double,
+        runwayDays: Int,
+        commitmentShareOfIncome: Double,
+        spendingPaceRatio: Double
+    ) {
+        self.status = status
+        self.score = score
+        self.headline = headline
+        self.message = message
+        self.freeCashflow = freeCashflow
+        self.projectedBalance = projectedBalance
+        self.reserveFloor = reserveFloor
+        self.runwayDays = runwayDays
+        self.commitmentShareOfIncome = commitmentShareOfIncome
+        self.spendingPaceRatio = spendingPaceRatio
+    }
+}
+
+public struct FinanceSafeToSpendSummary: Codable, Sendable, Equatable, Hashable {
+    public let status: FinanceHealthStatus
+    public let amount: Double
+    public let dailyAllowance: Double
+    public let daysRemaining: Int
+    public let headline: String
+    public let message: String
+
+    public init(
+        status: FinanceHealthStatus,
+        amount: Double,
+        dailyAllowance: Double,
+        daysRemaining: Int,
+        headline: String,
+        message: String
+    ) {
+        self.status = status
+        self.amount = amount
+        self.dailyAllowance = dailyAllowance
+        self.daysRemaining = daysRemaining
+        self.headline = headline
+        self.message = message
+    }
+}
+
+public struct FinanceCategoryDrift: Codable, Sendable, Equatable, Identifiable, Hashable {
+    public let categoryId: String
+    public let categoryName: String
+    public let iconName: String
+    public let currentAmount: Double
+    public let previousAmount: Double
+    public let deltaAmount: Double
+    public let shareOfSpend: Double
+    public let changeRatio: Double?
+    public let message: String
+
+    public var id: String { categoryId }
+
+    public init(
+        categoryId: String,
+        categoryName: String,
+        iconName: String,
+        currentAmount: Double,
+        previousAmount: Double,
+        deltaAmount: Double,
+        shareOfSpend: Double,
+        changeRatio: Double?,
+        message: String
+    ) {
+        self.categoryId = categoryId
+        self.categoryName = categoryName
+        self.iconName = iconName
+        self.currentAmount = currentAmount
+        self.previousAmount = previousAmount
+        self.deltaAmount = deltaAmount
+        self.shareOfSpend = shareOfSpend
+        self.changeRatio = changeRatio
+        self.message = message
+    }
+}
+
+public struct FinanceRecurringPressureSummary: Codable, Sendable, Equatable, Hashable {
+    public let activeCount: Int
+    public let monthlyCommitment: Double
+    public let yearlyCommitment: Double
+    public let shareOfIncome: Double
+    public let upcomingChargesTotal: Double
+    public let growthVsPreviousMonth: Double?
+    public let headline: String
+    public let message: String
+
+    public init(
+        activeCount: Int,
+        monthlyCommitment: Double,
+        yearlyCommitment: Double,
+        shareOfIncome: Double,
+        upcomingChargesTotal: Double,
+        growthVsPreviousMonth: Double?,
+        headline: String,
+        message: String
+    ) {
+        self.activeCount = activeCount
+        self.monthlyCommitment = monthlyCommitment
+        self.yearlyCommitment = yearlyCommitment
+        self.shareOfIncome = shareOfIncome
+        self.upcomingChargesTotal = upcomingChargesTotal
+        self.growthVsPreviousMonth = growthVsPreviousMonth
+        self.headline = headline
+        self.message = message
+    }
+}
+
+public struct FinanceSpendingPatternSummary: Codable, Sendable, Equatable, Hashable {
+    public let recentDailyAverage: Double
+    public let baselineDailyAverage: Double
+    public let currentPeriodSpend: Double
+    public let projectedPeriodSpend: Double?
+    public let acceleratedAfterMidpoint: Bool
+    public let message: String
+
+    public init(
+        recentDailyAverage: Double,
+        baselineDailyAverage: Double,
+        currentPeriodSpend: Double,
+        projectedPeriodSpend: Double?,
+        acceleratedAfterMidpoint: Bool,
+        message: String
+    ) {
+        self.recentDailyAverage = recentDailyAverage
+        self.baselineDailyAverage = baselineDailyAverage
+        self.currentPeriodSpend = currentPeriodSpend
+        self.projectedPeriodSpend = projectedPeriodSpend
+        self.acceleratedAfterMidpoint = acceleratedAfterMidpoint
+        self.message = message
+    }
+}
+
+public struct FinanceAttentionSignal: Codable, Sendable, Equatable, Identifiable, Hashable {
+    public let kind: FinanceAttentionKind
+    public let severity: FinanceAttentionSeverity
+    public let title: String
+    public let message: String
+    public let metricLabel: String?
+    public let metricValue: Double?
+
+    public var id: String { "\(kind.rawValue)-\(title)" }
+
+    public init(
+        kind: FinanceAttentionKind,
+        severity: FinanceAttentionSeverity,
+        title: String,
+        message: String,
+        metricLabel: String? = nil,
+        metricValue: Double? = nil
+    ) {
+        self.kind = kind
+        self.severity = severity
+        self.title = title
+        self.message = message
+        self.metricLabel = metricLabel
+        self.metricValue = metricValue
+    }
+}
+
 public struct FinanceWarning: Codable, Sendable, Equatable, Identifiable, Hashable {
     public let kind: FinanceWarningKind
     public let title: String
@@ -383,6 +601,12 @@ public struct FinanceHomeSnapshot: Codable, Sendable, Equatable, Hashable {
     public let monthlyRecurringTotal: Double
     public let yearlyRecurringTotal: Double
     public let suggestedPaymentMethod: FinancePaymentMethod
+    public let cashflowHealth: FinanceCashflowHealth?
+    public let safeToSpend: FinanceSafeToSpendSummary?
+    public let recurringPressure: FinanceRecurringPressureSummary?
+    public let spendingPattern: FinanceSpendingPatternSummary?
+    public let attentionSignals: [FinanceAttentionSignal]
+    public let categoryDrift: [FinanceCategoryDrift]
 
     public init(
         balanceState: FinanceBalanceState,
@@ -393,7 +617,13 @@ public struct FinanceHomeSnapshot: Codable, Sendable, Equatable, Hashable {
         categoryBreakdown: [FinanceCategoryTotal],
         monthlyRecurringTotal: Double,
         yearlyRecurringTotal: Double,
-        suggestedPaymentMethod: FinancePaymentMethod
+        suggestedPaymentMethod: FinancePaymentMethod,
+        cashflowHealth: FinanceCashflowHealth? = nil,
+        safeToSpend: FinanceSafeToSpendSummary? = nil,
+        recurringPressure: FinanceRecurringPressureSummary? = nil,
+        spendingPattern: FinanceSpendingPatternSummary? = nil,
+        attentionSignals: [FinanceAttentionSignal] = [],
+        categoryDrift: [FinanceCategoryDrift] = []
     ) {
         self.balanceState = balanceState
         self.balanceComparisons = balanceComparisons
@@ -404,6 +634,12 @@ public struct FinanceHomeSnapshot: Codable, Sendable, Equatable, Hashable {
         self.monthlyRecurringTotal = monthlyRecurringTotal
         self.yearlyRecurringTotal = yearlyRecurringTotal
         self.suggestedPaymentMethod = suggestedPaymentMethod
+        self.cashflowHealth = cashflowHealth
+        self.safeToSpend = safeToSpend
+        self.recurringPressure = recurringPressure
+        self.spendingPattern = spendingPattern
+        self.attentionSignals = attentionSignals
+        self.categoryDrift = categoryDrift
     }
 }
 
@@ -466,6 +702,12 @@ public struct FinanceAnalyticsSnapshot: Codable, Sendable, Equatable, Hashable {
     public let chartPoints: [FinanceAmountChartPoint]
     public let topCategories: [FinanceCategoryTotal]
     public let comparisonPoints: [FinanceComparisonPoint]
+    public let cashflowHealth: FinanceCashflowHealth?
+    public let safeToSpend: FinanceSafeToSpendSummary?
+    public let recurringPressure: FinanceRecurringPressureSummary?
+    public let spendingPattern: FinanceSpendingPatternSummary?
+    public let attentionSignals: [FinanceAttentionSignal]
+    public let categoryDrift: [FinanceCategoryDrift]
 
     public init(
         period: FinanceAnalyticsPeriod,
@@ -479,7 +721,13 @@ public struct FinanceAnalyticsSnapshot: Codable, Sendable, Equatable, Hashable {
         insightMessage: String,
         chartPoints: [FinanceAmountChartPoint],
         topCategories: [FinanceCategoryTotal],
-        comparisonPoints: [FinanceComparisonPoint]
+        comparisonPoints: [FinanceComparisonPoint],
+        cashflowHealth: FinanceCashflowHealth? = nil,
+        safeToSpend: FinanceSafeToSpendSummary? = nil,
+        recurringPressure: FinanceRecurringPressureSummary? = nil,
+        spendingPattern: FinanceSpendingPatternSummary? = nil,
+        attentionSignals: [FinanceAttentionSignal] = [],
+        categoryDrift: [FinanceCategoryDrift] = []
     ) {
         self.period = period
         self.startDate = startDate
@@ -493,6 +741,12 @@ public struct FinanceAnalyticsSnapshot: Codable, Sendable, Equatable, Hashable {
         self.chartPoints = chartPoints
         self.topCategories = topCategories
         self.comparisonPoints = comparisonPoints
+        self.cashflowHealth = cashflowHealth
+        self.safeToSpend = safeToSpend
+        self.recurringPressure = recurringPressure
+        self.spendingPattern = spendingPattern
+        self.attentionSignals = attentionSignals
+        self.categoryDrift = categoryDrift
     }
 }
 

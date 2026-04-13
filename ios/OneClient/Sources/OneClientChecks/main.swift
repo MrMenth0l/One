@@ -584,10 +584,19 @@ private actor ScriptedTransport: HTTPTransport {
                   "completed": false,
                   "sort_bucket": 2,
                   "sort_score": 50
+                },
+                {
+                  "item_type": "habit",
+                  "item_id": "h1",
+                  "title": "Workout duplicate",
+                  "category_id": "c1",
+                  "completed": false,
+                  "sort_bucket": 3,
+                  "sort_score": 10
                 }
               ],
               "completed_count": 0,
-              "total_count": 1,
+              "total_count": 2,
               "completion_ratio": 0
             }
             """
